@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import settings
 import theme
 import storage
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from crypto import ecies_decrypt
 from app import CalendarApp
 from ui.main_window import MainWindow
@@ -18,12 +19,10 @@ from ui.main_window import MainWindow
 class LoginFrame(ttk.Frame):
     """Password prompt: decrypts user key → derives sym_key_cal → loads CalendarApp."""
 
-    def __init__(self, parent, on_login, user_hash: str,
-                 is_admin_candidate: bool):
+    def __init__(self, parent, on_login, user_hash: str):
         super().__init__(parent)
-        self._on_login          = on_login
-        self._user_hash         = user_hash
-        self._is_admin_candidate = is_admin_candidate
+        self._on_login  = on_login
+        self._user_hash = user_hash
 
         ttk.Label(self, text="calsec",
                   font=("Cantarell", 18, "bold")).pack(pady=(30, 6))
@@ -50,7 +49,7 @@ class LoginFrame(ttk.Frame):
         self._pw_entry.bind("<Return>", lambda _: self._submit())
 
     def _submit(self):
-        pw = self._pw_entry.get().encode()
+        pw = self._pw_entry.get().encode() or None
 
         # 1. Decrypt the user's encryption private key
         try:
@@ -65,32 +64,60 @@ class LoginFrame(ttk.Frame):
 
         # 2. Derive sym_key_cal via ECIES
         try:
-            raw        = storage.load_file_raw()
-            user_entry = raw["users"][self._user_hash]
+            raw         = storage.load_file_raw()
+            user_entry  = raw["users"][self._user_hash]
             sym_key_cal = ecies_decrypt(kpriv_user, user_entry["sym_key_cal_enc"])
         except Exception:
             self._error_var.set("Schlüsselableitung fehlgeschlagen.")
             return
 
-        # 3. Try to load the signing key (grants admin rights if successful)
-        kpriv_sign = None
-        if self._is_admin_candidate:
-            try:
-                kpriv_sign = storage.load_sign_private_key(pw)
-            except Exception:
-                pass  # not admin, or different sign-key password
+        # 3. Decrypt sign keys from calendar.json
+        #    admin_sign_key — admin only (user management + sync config)
+        #    edit_sign_key  — admin + editor (entry management)
+        role = user_entry.get("role", "viewer")
+        kpriv_admin_sign = None
+        kpriv_edit_sign  = None
 
-        is_admin = user_entry.get("is_admin", False) and kpriv_sign is not None
+        if role == "admin" and "admin_sign_key_enc" in user_entry:
+            try:
+                pem = ecies_decrypt(kpriv_user, user_entry["admin_sign_key_enc"])
+                kpriv_admin_sign = load_pem_private_key(pem, password=None)
+            except Exception:
+                self._error_var.set("Admin-Signing-Key konnte nicht entschlüsselt werden.")
+                return
+
+        if role in ("admin", "editor") and "edit_sign_key_enc" in user_entry:
+            try:
+                pem = ecies_decrypt(kpriv_user, user_entry["edit_sign_key_enc"])
+                kpriv_edit_sign = load_pem_private_key(pem, password=None)
+            except Exception:
+                self._error_var.set("Edit-Signing-Key konnte nicht entschlüsselt werden.")
+                return
 
         # 4. Build CalendarApp
         try:
-            app = CalendarApp(sym_key_cal, kpriv_sign=kpriv_sign,
-                              is_admin=is_admin, user_hash=self._user_hash)
+            app = CalendarApp(sym_key_cal,
+                              kpriv_admin_sign=kpriv_admin_sign,
+                              kpriv_edit_sign=kpriv_edit_sign,
+                              role=role, user_hash=self._user_hash)
         except RuntimeError as e:
             self._error_var.set(str(e))
             return
 
         self._on_login(app)
+
+
+def _patch_toplevel_icon(icon_path: str) -> None:
+    _orig_init = tk.Toplevel.__init__
+
+    def _patched_init(self, *args, **kwargs):
+        _orig_init(self, *args, **kwargs)
+        try:
+            self.iconbitmap(icon_path)
+        except Exception:
+            pass
+
+    tk.Toplevel.__init__ = _patched_init
 
 
 class Application(tk.Tk):
@@ -99,6 +126,11 @@ class Application(tk.Tk):
         super().__init__()
         self.title("calsec")
         self.minsize(600, 380)
+        _base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self._icon_path = os.path.join(_base, "icon.ico")
+        if os.path.exists(self._icon_path):
+            self.iconbitmap(self._icon_path)
+            _patch_toplevel_icon(self._icon_path)
         self._frame         = None
         self._logged_in_app = None
 
@@ -109,9 +141,23 @@ class Application(tk.Tk):
 
     def _start(self):
         if not storage.is_provisioned():
-            self._show_provision()
+            if storage.find_user_key_hashes():
+                # Keys exist locally but no calendar yet — fetch from server
+                self._show_fetch()
+            else:
+                # No keys and no calendar — first-time admin setup
+                self._show_provision()
         else:
             self._show_login()
+
+    def _show_fetch(self):
+        from ui.dialogs import FetchCalendarDialog
+        dlg = FetchCalendarDialog(self)
+        self.wait_window(dlg)
+        if not dlg.result:
+            self.destroy()
+            return
+        self._show_login()
 
     def _show_login(self):
         self._logged_in_app = None
@@ -138,7 +184,6 @@ class Application(tk.Tk):
             self,
             on_login=self._show_main,
             user_hash=user_hash,
-            is_admin_candidate=storage.sign_key_exists(),
         ))
 
     def _show_provision(self):
@@ -167,8 +212,11 @@ class Application(tk.Tk):
 
     def _show_main(self, app: CalendarApp):
         self._logged_in_app = app
-        self._switch_to(
-            MainWindow(self, app, on_toggle_theme=self._toggle_theme))
+        main_win = MainWindow(self, app, on_toggle_theme=self._toggle_theme)
+        self._switch_to(main_win)
+        # Auto-pull after login so the user always sees the latest version
+        if app.sync_config is not None:
+            app.sync_pull(on_done=main_win._on_sync_done)
 
     def _toggle_theme(self):
         new_mode = "light" if settings.get("theme") == "dark" else "dark"

@@ -88,31 +88,67 @@ def decrypt_entry(enc_entry: dict, sym_key_cal: bytes) -> dict:
     return json.loads(plaintext)
 
 
-# ── File signing ──────────────────────────────────────────────────────────────
+# ── Public key helpers ────────────────────────────────────────────────────────
 
-def _canonical(version: int, users: dict, entries: list, sync_config_enc) -> bytes:
-    """Deterministic JSON encoding of the fields covered by the signature."""
+def pem_to_public_key(pem_str: str):
+    """Load an EC public key from a PEM string."""
+    return serialization.load_pem_public_key(pem_str.encode())
+
+
+# ── File signing — two independent sections ───────────────────────────────────
+#
+# sig_users   covers sign_keys + users  → signed with kpriv_admin_sign
+# sig_entries covers entries + sync_config → signed with kpriv_edit_sign
+#
+# Separating the two signatures means:
+#   - Editors (kpriv_edit_sign only) can sign entry changes but cannot forge user changes.
+#   - Admins hold both keys and can sign either section.
+
+def _canonical_users(sign_keys: dict, users: dict, sync_config) -> bytes:
+    """Admin-controlled section: sign_keys, users, and sync_config."""
     return json.dumps(
-        {"version": version, "users": users,
-         "entries": entries, "sync_config": sync_config_enc},
+        {"sign_keys": sign_keys, "users": users, "sync_config": sync_config},
         sort_keys=True, separators=(",", ":"),
     ).encode()
 
 
-def sign_file(version: int, users: dict, entries: list,
-              sync_config_enc, kpriv_sign) -> str:
-    sig = kpriv_sign.sign(
-        _canonical(version, users, entries, sync_config_enc),
-        ec.ECDSA(hashes.SHA256()))
+def _canonical_entries(entries: list) -> bytes:
+    """Editor-controlled section: entries only."""
+    return json.dumps(
+        {"entries": entries},
+        sort_keys=True, separators=(",", ":"),
+    ).encode()
+
+
+def sign_users(sign_keys: dict, users: dict, sync_config, kpriv_admin_sign) -> str:
+    sig = kpriv_admin_sign.sign(
+        _canonical_users(sign_keys, users, sync_config), ec.ECDSA(hashes.SHA256()))
     return b64(sig)
 
 
-def verify_file(version: int, users: dict, entries: list,
-                sync_config_enc, signature_b64: str, kpub_sign) -> bool:
+def sign_entries(entries: list, kpriv_edit_sign) -> str:
+    sig = kpriv_edit_sign.sign(
+        _canonical_entries(entries), ec.ECDSA(hashes.SHA256()))
+    return b64(sig)
+
+
+def verify_users(sign_keys: dict, users: dict, sync_config,
+                 sig_b64: str, kpub_admin_sign) -> bool:
     try:
-        kpub_sign.verify(
-            b64d(signature_b64),
-            _canonical(version, users, entries, sync_config_enc),
+        kpub_admin_sign.verify(
+            b64d(sig_b64),
+            _canonical_users(sign_keys, users, sync_config),
+            ec.ECDSA(hashes.SHA256()))
+        return True
+    except InvalidSignature:
+        return False
+
+
+def verify_entries(entries: list, sig_b64: str, kpub_edit_sign) -> bool:
+    try:
+        kpub_edit_sign.verify(
+            b64d(sig_b64),
+            _canonical_entries(entries),
             ec.ECDSA(hashes.SHA256()))
         return True
     except InvalidSignature:

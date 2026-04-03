@@ -12,7 +12,9 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 from crypto import (
     encrypt_entry, decrypt_entry,
-    sign_file, verify_file,
+    sign_users, sign_entries,
+    verify_users, verify_entries,
+    pem_to_public_key,
     sym_encrypt, sym_decrypt,
     ecies_encrypt,
     b64, b64d,
@@ -163,13 +165,17 @@ def _expand_recurrence(data: dict, year: int, month: int) -> list:
 
 class CalendarApp:
 
-    def __init__(self, sym_key_cal: bytes, kpriv_sign=None,
-                 is_admin: bool = False, user_hash: str | None = None):
-        self._sym_key_cal = sym_key_cal
-        self._kpriv_sign  = kpriv_sign   # None for non-admin users
-        self._is_admin    = is_admin
-        self._user_hash   = user_hash
-        self._kpub_sign   = storage.load_sign_public_key()
+    def __init__(self, sym_key_cal: bytes,
+                 kpriv_admin_sign=None,
+                 kpriv_edit_sign=None,
+                 role: str = "viewer",
+                 user_hash: str | None = None):
+        self._sym_key_cal      = sym_key_cal
+        self._kpriv_admin_sign = kpriv_admin_sign  # None unless admin
+        self._kpriv_edit_sign  = kpriv_edit_sign   # None unless admin or editor
+        self._role             = role
+        self._is_admin         = role == "admin"
+        self._user_hash        = user_hash
 
         self.buffer   = []
         self.unsigned = False
@@ -178,18 +184,38 @@ class CalendarApp:
     def _reload(self):
         raw = storage.load_file_raw()
         self.version          = raw.get("version", 2)
+        self._sign_keys       = raw.get("sign_keys", {})
         self._users           = raw.get("users", {})
         self._entries_enc     = raw.get("entries", [])
         self._sync_config_enc = raw.get("sync_config")
-        sig = raw.get("signature")
+        self._sig_users       = raw.get("sig_users")
+        self._sig_entries     = raw.get("sig_entries")
 
-        if sig is None:
+        self.unsigned = False
+
+        if self._sign_keys:
+            kpub_admin_sign = pem_to_public_key(self._sign_keys["admin"])
+            kpub_edit_sign  = pem_to_public_key(self._sign_keys["edit"])
+
+            if self._sig_users is None:
+                self.unsigned = True
+            elif not verify_users(self._sign_keys, self._users,
+                                   self._sync_config_enc,
+                                   self._sig_users, kpub_admin_sign):
+                raise RuntimeError(
+                    "Users section signature is invalid. "
+                    "File may have been tampered with.")
+
+            if self._sig_entries is None:
+                self.unsigned = True
+            elif not verify_entries(self._entries_enc,
+                                     self._sig_entries, kpub_edit_sign):
+                raise RuntimeError(
+                    "Entries section signature is invalid. "
+                    "File may have been tampered with.")
+        else:
+            # v3 or older — no split sign_keys present
             self.unsigned = True
-        elif not verify_file(self.version, self._users, self._entries_enc,
-                             self._sync_config_enc, sig, self._kpub_sign):
-            raise RuntimeError(
-                "Calendar file signature is invalid. "
-                "File may have been tampered with.")
 
         self.buffer = []
         for enc in self._entries_enc:
@@ -207,8 +233,16 @@ class CalendarApp:
     # ── Properties ────────────────────────────────────────────────────────────
 
     @property
+    def role(self) -> str:
+        return self._role
+
+    @property
     def is_admin(self) -> bool:
         return self._is_admin
+
+    @property
+    def can_edit(self) -> bool:
+        return self._kpriv_edit_sign is not None
 
     @property
     def sync_config(self):
@@ -221,28 +255,49 @@ class CalendarApp:
 
     # ── Internal save ─────────────────────────────────────────────────────────
 
-    def _save_and_sync(self, on_sync_done=None):
-        """Sign, save, reload, then push to Nextcloud (admin only)."""
-        if self._kpriv_sign is None:
-            raise RuntimeError("Only admin can save changes.")
+    def _save_and_sync(self, changed: str = "entries", on_sync_done=None):
+        """Sign the changed section(s), save, reload, then push to Nextcloud.
+
+        changed: "entries" — re-signs entries+sync_config (requires kpriv_edit_sign)
+                 "users"   — re-signs users block (requires kpriv_admin_sign)
+                 "both"    — re-signs both (requires both keys; used on key rotation)
+        """
+        if changed in ("entries", "both"):
+            if self._kpriv_edit_sign is None:
+                raise RuntimeError("Only editors and admins can save entry changes.")
+            sig_entries = sign_entries(self._entries_enc, self._kpriv_edit_sign)
+        else:
+            sig_entries = self._sig_entries  # unchanged
+
+        if changed in ("users", "both"):
+            if self._kpriv_admin_sign is None:
+                raise RuntimeError("Only admins can save user changes.")
+            sig_users = sign_users(
+                self._sign_keys, self._users, self._sync_config_enc,
+                self._kpriv_admin_sign)
+        else:
+            sig_users = self._sig_users  # unchanged
 
         new_version = self.version + 1
-        sig = sign_file(new_version, self._users, self._entries_enc,
-                        self._sync_config_enc, self._kpriv_sign)
         storage.save_file({
             "version":     new_version,
+            "sign_keys":   self._sign_keys,
             "users":       self._users,
             "sync_config": self._sync_config_enc,
             "entries":     self._entries_enc,
-            "signature":   sig,
+            "sig_users":   sig_users,
+            "sig_entries": sig_entries,
         })
         self._reload()
 
         config = self.sync_config
         if config is not None:
             def _run():
-                from sync import sync_push
-                msg = sync_push(config)
+                try:
+                    from sync import sync_push
+                    msg = sync_push(config)
+                except Exception as exc:
+                    msg = f"Sync error: {exc}"
                 if on_sync_done:
                     on_sync_done(msg)
             threading.Thread(target=_run, daemon=True).start()
@@ -293,7 +348,7 @@ class CalendarApp:
         result.sort(key=lambda x: x.get("timestamp", 0))
         return result
 
-    # ── Entry mutations (admin only) ──────────────────────────────────────────
+    # ── Entry mutations (editor + admin) ──────────────────────────────────────
 
     def add_entry(self, title: str, date_str: str, time_str: str,
                   comments: list[str], color: str | None = None,
@@ -327,7 +382,7 @@ class CalendarApp:
             pos = i + 1
 
         self._entries_enc.insert(pos, encrypted)
-        self._save_and_sync(on_sync_done)
+        self._save_and_sync(changed="entries", on_sync_done=on_sync_done)
 
     def update_entry(self, entry_id: str, title: str, date_str: str,
                      time_str: str, comments: list[str],
@@ -357,25 +412,27 @@ class CalendarApp:
             encrypted if e["id"] == entry_id else e
             for e in self._entries_enc
         ]
-        self._save_and_sync(on_sync_done)
+        self._save_and_sync(changed="entries", on_sync_done=on_sync_done)
 
     def delete_entries(self, ids: list[str], on_sync_done=None) -> bool:
         original_len = len(self._entries_enc)
         self._entries_enc = [e for e in self._entries_enc if e["id"] not in ids]
         if len(self._entries_enc) == original_len:
             return False
-        self._save_and_sync(on_sync_done)
+        self._save_and_sync(changed="entries", on_sync_done=on_sync_done)
         return True
 
     # ── Sync config (admin only) ──────────────────────────────────────────────
 
     def update_sync_config(self, sync_data: dict | None, on_sync_done=None):
+        if not self._is_admin:
+            raise RuntimeError("Only admin can change sync configuration.")
         if sync_data is None:
             self._sync_config_enc = None
         else:
             self._sync_config_enc = sym_encrypt(
                 self._sym_key_cal, json.dumps(sync_data).encode())
-        self._save_and_sync(on_sync_done)
+        self._save_and_sync(changed="users", on_sync_done=on_sync_done)
 
     # ── Sync pull (all users) ─────────────────────────────────────────────────
 
@@ -387,7 +444,7 @@ class CalendarApp:
                 on_done("Kein Sync konfiguriert.")
             return
 
-        kpub_sign = self._kpub_sign
+        local_sign_keys = self._sign_keys
 
         def _run():
             from sync import sync_pull as _pull
@@ -397,15 +454,39 @@ class CalendarApp:
                     on_done(msg)
                 return
 
-            # Verify signature of downloaded file
-            sig = data.get("signature")
-            if not sig or not verify_file(
-                data.get("version", 2), data.get("users", {}),
-                data.get("entries", []), data.get("sync_config"),
-                sig, kpub_sign,
-            ):
+            # Reject files whose signing infrastructure differs from ours
+            remote_sign_keys = data.get("sign_keys", {})
+            if remote_sign_keys != local_sign_keys:
                 if on_done:
-                    on_done("Sync error: Signatur der heruntergeladenen Datei ungültig.")
+                    on_done("Sync error: Signierschlüssel der heruntergeladenen "
+                            "Datei stimmen nicht überein.")
+                return
+
+            # Verify both signatures of the downloaded file
+            sig_users   = data.get("sig_users")
+            sig_entries = data.get("sig_entries")
+
+            if not sig_users or not sig_entries or not remote_sign_keys:
+                if on_done:
+                    on_done("Sync error: Signaturen der heruntergeladenen Datei fehlen.")
+                return
+
+            kpub_admin_sign = pem_to_public_key(remote_sign_keys["admin"])
+            kpub_edit_sign  = pem_to_public_key(remote_sign_keys["edit"])
+
+            if not verify_users(remote_sign_keys, data.get("users", {}),
+                                 data.get("sync_config"),
+                                 sig_users, kpub_admin_sign):
+                if on_done:
+                    on_done("Sync error: Benutzersignatur der heruntergeladenen "
+                            "Datei ungültig.")
+                return
+
+            if not verify_entries(data.get("entries", []),
+                                   sig_entries, kpub_edit_sign):
+                if on_done:
+                    on_done("Sync error: Eintrags-Signatur der heruntergeladenen "
+                            "Datei ungültig.")
                 return
 
             if data.get("version", 0) <= self.version:
@@ -423,7 +504,7 @@ class CalendarApp:
     # ── User management (admin only) ──────────────────────────────────────────
 
     def list_users(self) -> list[dict]:
-        """Return [{hash, email, is_admin}] for all registered users."""
+        """Return [{hash, email, role}] for all registered users."""
         result = []
         for h, u in self._users.items():
             email = ""
@@ -432,20 +513,21 @@ class CalendarApp:
             except Exception:
                 pass
             result.append({
-                "hash":     h,
-                "email":    email,
-                "is_admin": u.get("is_admin", False),
+                "hash":  h,
+                "email": email,
+                "role":  u.get("role", "viewer"),
             })
         return result
 
     def add_user(self, email: str, kpub_user=None,
-                 password: bytes | None = None) -> bytes | None:
+                 password: bytes | None = None,
+                 role: str = "viewer",
+                 save_locally: bool = True) -> bytes | None:
         """Add a user to the calendar.
 
         If *kpub_user* is None a new SECP256R1 keypair is generated.
-        If *password* is provided the private key is also saved to KEYS_DIR.
-        Returns the private key PEM bytes (password-protected if password given,
-        unencrypted otherwise), or None if an external kpub was provided.
+        If *save_locally* is True the private key is saved to KEYS_DIR.
+        Returns the private key PEM bytes, or None if an external kpub was provided.
         Raises RuntimeError if caller is not admin.
         """
         if not self._is_admin:
@@ -459,7 +541,7 @@ class CalendarApp:
         if kpub_user is None:
             kpriv_user = ec.generate_private_key(ec.SECP256R1())
             kpub_user  = kpriv_user.public_key()
-            if password:
+            if save_locally:
                 storage.save_user_key_file(h, kpriv_user, password)
             enc_algo = (serialization.BestAvailableEncryption(password)
                         if password else serialization.NoEncryption())
@@ -473,13 +555,36 @@ class CalendarApp:
             serialization.Encoding.X962,
             serialization.PublicFormat.UncompressedPoint,
         )
-        self._users[h] = {
+        user_entry = {
             "kpub_enc":        b64(kpub_bytes),
             "sym_key_cal_enc": ecies_encrypt(kpub_user, self._sym_key_cal),
             "email_enc":       sym_encrypt(self._sym_key_cal, email.encode()),
-            "is_admin":        False,
+            "role":            role,
         }
-        self._save_and_sync()
+
+        # Distribute sign keys based on role
+        if role in ("admin", "editor"):
+            if self._kpriv_edit_sign is None:
+                raise RuntimeError("Edit sign key unavailable — cannot create editor/admin.")
+            edit_sign_key_pem = self._kpriv_edit_sign.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption(),
+            )
+            user_entry["edit_sign_key_enc"] = ecies_encrypt(kpub_user, edit_sign_key_pem)
+
+        if role == "admin":
+            if self._kpriv_admin_sign is None:
+                raise RuntimeError("Admin sign key unavailable — cannot create admin.")
+            admin_sign_key_pem = self._kpriv_admin_sign.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption(),
+            )
+            user_entry["admin_sign_key_enc"] = ecies_encrypt(kpub_user, admin_sign_key_pem)
+
+        self._users[h] = user_entry
+        self._save_and_sync(changed="users")
         return kpriv_bytes
 
     def remove_user(self, user_hash_str: str) -> None:
@@ -505,11 +610,16 @@ class CalendarApp:
             except Exception:
                 new_entries.append(enc)  # keep corrupted entries as-is
 
-        # Re-encrypt sym_key_cal for all remaining users
+        # Re-encrypt sym_key_cal and email_enc for all remaining users
         for h, u in self._users.items():
             kpub = ec.EllipticCurvePublicKey.from_encoded_point(
                 ec.SECP256R1(), b64d(u["kpub_enc"]))
             u["sym_key_cal_enc"] = ecies_encrypt(kpub, new_key)
+            try:
+                email_plain = sym_decrypt(self._sym_key_cal, u["email_enc"])
+                u["email_enc"] = sym_encrypt(new_key, email_plain)
+            except Exception:
+                pass
 
         # Re-encrypt sync config with new key
         if self._sync_config_enc:
@@ -521,4 +631,5 @@ class CalendarApp:
 
         self._sym_key_cal = new_key
         self._entries_enc = new_entries
-        self._save_and_sync()
+        # Both sections changed: users (user removed) + entries (re-encrypted)
+        self._save_and_sync(changed="both")

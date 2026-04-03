@@ -6,7 +6,7 @@ from storage import DATA_FILE
 
 
 def sync_push(config) -> str:
-    """Upload calendar.json to Nextcloud via WebDAV PUT. Returns a status message."""
+    """Upload calendar.json to a WebDAV URL via PUT. Returns a status message."""
     if config is None:
         return None
 
@@ -24,9 +24,8 @@ def sync_push(config) -> str:
     except Exception:
         return "Sync error: Failed to read calendar file."
 
-    url  = (f"{config['url']}/remote.php/dav/files/"
-            f"{config['user']}{config['remote_path']}")
-    auth = (config["user"], config["password"])
+    url  = config["webdav_url"]
+    auth = (config["auth_user"], config["password"])
 
     try:
         response = requests.put(
@@ -35,29 +34,29 @@ def sync_push(config) -> str:
             timeout=30,
         )
     except requests.exceptions.MissingSchema:
-        return (f"Sync error: Ungültige URL '{config['url']}' — "
+        return (f"Sync error: Ungültige URL '{url}' — "
                 "URL muss mit http:// oder https:// beginnen.")
     except requests.exceptions.SSLError:
         return "Sync error: SSL certificate verification failed."
     except requests.exceptions.ConnectionError:
-        return "Sync error: Could not connect to Nextcloud."
+        return "Sync error: Could not connect to server."
     except requests.exceptions.Timeout:
         return "Sync error: Connection timed out."
 
     if response.status_code in (200, 201, 204):
-        return f"Synced to {config['url']} ({response.status_code})."
+        return f"Synced ({response.status_code})."
     elif response.status_code == 401:
         return "Sync error: Authentication failed."
     elif response.status_code == 403:
         return "Sync error: Access denied."
     elif response.status_code == 404:
-        return "Sync error: Remote directory does not exist."
+        return "Sync error: Remote path does not exist."
     else:
         return f"Sync error: Unexpected response {response.status_code}."
 
 
 def sync_pull(config) -> tuple:
-    """Download calendar.json from Nextcloud via WebDAV GET.
+    """Download calendar.json from a WebDAV URL via GET.
     Returns (data_dict, message). data_dict is None on failure."""
     if config is None:
         return None, "Kein Sync konfiguriert."
@@ -67,27 +66,31 @@ def sync_pull(config) -> tuple:
     except ImportError:
         return None, "Sync error: 'requests' library not installed."
 
-    url  = (f"{config['url']}/remote.php/dav/files/"
-            f"{config['user']}{config['remote_path']}")
-    auth = (config["user"], config["password"])
+    url  = config["webdav_url"]
+    auth = (config["auth_user"], config["password"])
 
     try:
         response = requests.get(url, auth=auth, timeout=30)
     except requests.exceptions.MissingSchema:
-        return (None, f"Sync error: Ungültige URL '{config['url']}' — "
+        return (None, f"Sync error: Ungültige URL '{url}' — "
                 "URL muss mit http:// oder https:// beginnen.")
     except requests.exceptions.SSLError:
         return None, "Sync error: SSL certificate verification failed."
     except requests.exceptions.ConnectionError:
-        return None, "Sync error: Could not connect to Nextcloud."
+        return None, "Sync error: Could not connect to server."
     except requests.exceptions.Timeout:
         return None, "Sync error: Connection timed out."
 
     if response.status_code == 200:
         try:
-            return response.json(), f"Synchronisiert von {config['url']}."
+            import json as _json
+            return _json.loads(response.content.decode("utf-8-sig")), "Synchronisiert."
         except Exception:
-            return None, "Sync error: Ungültiges JSON in der Antwort."
+            ct = response.headers.get("Content-Type", "unbekannt")
+            snippet = response.text[:300].replace("\n", " ")
+            return None, (f"Sync error: Ungültiges JSON in der Antwort.\n"
+                          f"Content-Type: {ct}\n"
+                          f"Antwort: {snippet}")
     elif response.status_code == 401:
         return None, "Sync error: Authentication failed."
     elif response.status_code == 404:

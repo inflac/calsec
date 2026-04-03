@@ -66,20 +66,20 @@ class MainWindow(ttk.Frame):
         toolbar = ttk.Frame(self)
         toolbar.pack(side="top", fill="x", padx=6, pady=(6, 0))
 
-        if self._app.is_admin:
+        if self._app.can_edit:
             ttk.Button(toolbar, text="Add",
                        command=self._add).pack(side="left", padx=2)
             ttk.Button(toolbar, text="Edit",
                        command=self._edit).pack(side="left", padx=2)
             ttk.Button(toolbar, text="Delete",
                        command=self._delete).pack(side="left", padx=2)
+        if self._app.is_admin:
             ttk.Button(toolbar, text="Settings",
                        command=self._sync_settings).pack(side="left", padx=2)
             ttk.Button(toolbar, text="Benutzer",
                        command=self._manage_users).pack(side="left", padx=2)
-        else:
-            ttk.Button(toolbar, text="Sync",
-                       command=self._pull_sync).pack(side="left", padx=2)
+        ttk.Button(toolbar, text="Sync",
+                   command=self._pull_sync).pack(side="left", padx=2)
 
         self._version_var = tk.StringVar()
         ttk.Label(toolbar, textvariable=self._version_var,
@@ -383,7 +383,7 @@ class MainWindow(ttk.Frame):
             return
 
         if sync_data:
-            self._set_status(f"Sync gespeichert — {sync_data['url']}")
+            self._set_status(f"Sync gespeichert — {sync_data['webdav_url']}")
         else:
             self._set_status("Sync deaktiviert.")
         self.refresh()

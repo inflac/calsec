@@ -23,31 +23,79 @@ While this method does not eliminate all risks, it significantly reduces them by
 ## Installation Steps
 
 > [!WARNING]
-> For security reasons, you should only install CalSec using the ZIP file from the latest official release on GitHub.
-> Be especially cautious when downloading ZIP files from unknown or untrusted sources. Third-party files may have been modified and could contain malicious code.
+> For security reasons, you should only install CalSec using the ZIP file from the latest official release on GitHub.  
+> Be especially cautious when downloading ZIP files from unknown or untrusted sources. Third-party files may have been modified and could contain malicious code.  
 > Always verify the source before installation to ensure the integrity and safety of your system.
 
+---
 
-1. Verify the integrity of your local CalSec copy:
-    1. Calculate the sha256 hash of the zip: 
-        ```bash
-        sha256sum calsec.zip
-        ```
-    2. Compare the output with the hash from the latest [release](https://github.com/inflac/calsec/releases/latest)
-    3. If both hashes match, continue.  
-          If they do not match, delete your local copy and download a fresh, secure version from the official [release](https://github.com/inflac/calsec/releases/latest)
-2. Unzip the file  
-3. Open the extracted folder in your file browser  
-4. Right-click inside the folder and select **“Open in Terminal”**  
-5. Run the following command:
+### 1. Verify the integrity of your local CalSec copy
+
+1. Calculate the SHA256 hash of the ZIP:
+    ```bash
+    sha256sum calsec.zip
+    ```
+2. Compare the output with the hash from the latest [release](https://github.com/inflac/calsec/releases/latest)  
+3. If both hashes match, continue.  
+   If they do not match, delete your local copy and download a fresh version from the official release page.
+
+---
+
+### 2. Install CalSec
+
+1. Unzip the file  
+2. Open the extracted folder in your file browser  
+3. Right-click inside the folder and select **“Open in Terminal”**  
+4. Make the installer executable:
     ```bash
     chmod +x install_calsec.sh
     ```
-6. Start the installer: 
+5. Start the installer:
     ```bash
     ./install_calsec.sh
     ```
-CalSec will be installed automatically. The window will close once the installation is finished.
+
+---
+
+### 3. Key Generation (NEW)
+
+After installation, you will be asked:
+`Generate keypair now? [Y/n]`
+
+#### If you choose **Yes**:
+
+- Enter your **email address**
+- Optionally set a **password** for your private key
+
+> 🔐 If you set a password, you will need to enter it **every time you start CalSec**.
+
+The installer will then:
+
+- generate your **private key** (stored locally)
+- export your **public key**
+
+---
+
+### 4. Send your Public Key to the Admin
+
+After key generation:
+
+- Send the **public key file** (`.pub.pem`)
+- Provide your **email address**
+
+The admin will add you to the calendar.
+
+---
+
+### 5. Start CalSec
+
+You can now start CalSec from:
+
+- the Applications menu  
+- or via terminal:
+    ```bash
+    /live/persistence/TailsData_unlocked/calsec/calsec
+    ```
 
 
 ## Data Locations
@@ -55,9 +103,11 @@ CalSec stores its data inside the persistent storage:
 ```bash
 /live/persistence/TailsData_unlocked/
 └── calsec/
-  ├── calsec          # binary
-  ├── icon.png        # icon of the software
-  └── calendar.json   # encrypted calendar file
+  ├── calsec              # binary
+  ├── icon.png            # application icon
+  ├── calendar.json       # encrypted calendar (after sync)
+  ├── keys/               # private keys (SECRET!)
+  └── pubkeys/            # public keys for sharing
 ```
 
 The desktop entry for CalSec is stored at:

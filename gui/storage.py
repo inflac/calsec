@@ -17,12 +17,9 @@ if getattr(sys, "frozen", False):
 else:
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-print(f"Using base directory: {BASE_DIR}", file=sys.stderr)
 
-KEYS_DIR         = os.path.join(BASE_DIR, "keys")
-DATA_FILE        = os.path.join(BASE_DIR, "calendar.json")
-KEY_SIGN_PRIVATE = os.path.join(KEYS_DIR, "sign_private.pem")
-KEY_SIGN_PUBLIC  = os.path.join(BASE_DIR, "calsec_public.pem")
+KEYS_DIR  = os.path.join(BASE_DIR, "keys")
+DATA_FILE = os.path.join(BASE_DIR, "calendar.json")
 
 
 # ---------------------------------------------------------------------------
@@ -44,17 +41,13 @@ def is_provisioned() -> bool:
     return bool(raw.get("users"))
 
 
-def sign_key_exists() -> bool:
-    return os.path.exists(KEY_SIGN_PRIVATE)
-
-
 def find_user_key_hashes() -> list[str]:
     """Return sha256 hex strings for all user key files found in KEYS_DIR."""
     if not os.path.isdir(KEYS_DIR):
         return []
     return [
         name[:-4] for name in os.listdir(KEYS_DIR)
-        if name.endswith(".pem") and name != "sign_private.pem"
+        if name.endswith(".pem")
     ]
 
 
@@ -84,11 +77,13 @@ def save_file(data: dict) -> None:
 # Key I/O
 # ---------------------------------------------------------------------------
 
-def _write_private_key(path: str, kpriv, password: bytes) -> None:
+def _write_private_key(path: str, kpriv, password: bytes | None) -> None:
+    enc_algo = (serialization.BestAvailableEncryption(password)
+                if password else serialization.NoEncryption())
     pem = kpriv.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.BestAvailableEncryption(password),
+        encryption_algorithm=enc_algo,
     )
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as f:
@@ -96,38 +91,18 @@ def _write_private_key(path: str, kpriv, password: bytes) -> None:
     os.chmod(path, 0o600)
 
 
-def load_sign_private_key(password: bytes):
-    if not os.path.exists(KEY_SIGN_PRIVATE):
-        raise FileNotFoundError("Signing key not found.")
-    try:
-        with open(KEY_SIGN_PRIVATE, "rb") as f:
-            return serialization.load_pem_private_key(f.read(), password=password)
-    except Exception:
-        raise ValueError("Invalid password or corrupted signing key.")
-
-
-def load_sign_public_key():
-    if not os.path.exists(KEY_SIGN_PUBLIC):
-        raise FileNotFoundError("Signing public key not found.")
-    try:
-        with open(KEY_SIGN_PUBLIC, "rb") as f:
-            return serialization.load_pem_public_key(f.read())
-    except Exception:
-        raise RuntimeError("Failed to load signing public key.")
-
-
-def load_user_private_key(user_hash_str: str, password: bytes):
+def load_user_private_key(user_hash_str: str, password: bytes | None):
     path = os.path.join(KEYS_DIR, f"{user_hash_str}.pem")
     if not os.path.exists(path):
         raise FileNotFoundError("User key not found.")
     try:
         with open(path, "rb") as f:
-            return serialization.load_pem_private_key(f.read(), password=password)
+            return serialization.load_pem_private_key(f.read(), password=password or None)
     except Exception:
         raise ValueError("Invalid password or corrupted user key.")
 
 
-def save_user_key_file(user_hash_str: str, kpriv, password: bytes) -> None:
+def save_user_key_file(user_hash_str: str, kpriv, password: bytes | None) -> None:
     _write_private_key(os.path.join(KEYS_DIR, f"{user_hash_str}.pem"), kpriv, password)
 
 
@@ -137,19 +112,44 @@ def save_user_key_file(user_hash_str: str, kpriv, password: bytes) -> None:
 
 def provision(admin_email: str, admin_password: bytes,
               sync_data: dict | None) -> None:
-    """Generate signing + admin encryption keypairs, write calendar.json v2."""
-    from crypto import b64, ecies_encrypt, sym_encrypt, sign_file as _sign_file
+    """Generate two signing keypairs + admin encryption keypair, write calendar.json v4.
+
+    Two sign keys with separate authority:
+      kpriv_admin_sign — signs the users block; stored ECIES-encrypted for admins only.
+      kpriv_edit_sign  — signs entries+sync_config; stored ECIES-encrypted for admins+editors.
+    Both public keys are embedded in sign_keys in calendar.json.
+    """
+    from crypto import b64, ecies_encrypt, sym_encrypt, sign_users, sign_entries
 
     os.makedirs(KEYS_DIR, exist_ok=True)
 
-    # Signing keypair (admin only — used to sign calendar.json)
-    kpriv_sign = ec.generate_private_key(ec.SECP256R1())
-    _write_private_key(KEY_SIGN_PRIVATE, kpriv_sign, admin_password)
-    with open(KEY_SIGN_PUBLIC, "wb") as f:
-        f.write(kpriv_sign.public_key().public_bytes(
+    # Admin sign keypair — controls user management
+    kpriv_admin_sign = ec.generate_private_key(ec.SECP256R1())
+    admin_sign_key_pem = kpriv_admin_sign.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    )
+
+    # Edit sign keypair — controls entries and sync_config
+    kpriv_edit_sign = ec.generate_private_key(ec.SECP256R1())
+    edit_sign_key_pem = kpriv_edit_sign.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    )
+
+    # Public keys embedded in the file for verification by all users
+    sign_keys = {
+        "admin": kpriv_admin_sign.public_key().public_bytes(
             serialization.Encoding.PEM,
             serialization.PublicFormat.SubjectPublicKeyInfo,
-        ))
+        ).decode(),
+        "edit": kpriv_edit_sign.public_key().public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode(),
+    }
 
     # Admin encryption keypair (used to derive sym_key_cal via ECIES)
     kpriv_admin = ec.generate_private_key(ec.SECP256R1())
@@ -157,8 +157,7 @@ def provision(admin_email: str, admin_password: bytes,
     h = email_to_hash(admin_email)
     save_user_key_file(h, kpriv_admin, admin_password)
 
-    # Calendar symmetric key — all entries are encrypted with per-entry keys
-    # wrapped by this key; each user gets an ECIES-encrypted copy of it.
+    # Calendar symmetric key
     sym_key_cal = os.urandom(32)
 
     kpub_admin_bytes = kpub_admin.public_bytes(
@@ -166,10 +165,12 @@ def provision(admin_email: str, admin_password: bytes,
         serialization.PublicFormat.UncompressedPoint,
     )
     admin_entry = {
-        "kpub_enc":        b64(kpub_admin_bytes),
-        "sym_key_cal_enc": ecies_encrypt(kpub_admin, sym_key_cal),
-        "email_enc":       sym_encrypt(sym_key_cal, admin_email.encode()),
-        "is_admin":        True,
+        "kpub_enc":           b64(kpub_admin_bytes),
+        "sym_key_cal_enc":    ecies_encrypt(kpub_admin, sym_key_cal),
+        "email_enc":          sym_encrypt(sym_key_cal, admin_email.encode()),
+        "role":               "admin",
+        "admin_sign_key_enc": ecies_encrypt(kpub_admin, admin_sign_key_pem),
+        "edit_sign_key_enc":  ecies_encrypt(kpub_admin, edit_sign_key_pem),
     }
 
     sync_enc = None
@@ -178,13 +179,17 @@ def provision(admin_email: str, admin_password: bytes,
 
     users   = {h: admin_entry}
     entries = []
-    version = 2
-    sig = _sign_file(version, users, entries, sync_enc, kpriv_sign)
+    version = 4
+
+    sig_users   = sign_users(sign_keys, users, sync_enc, kpriv_admin_sign)
+    sig_entries = sign_entries(entries, kpriv_edit_sign)
 
     save_file({
         "version":     version,
+        "sign_keys":   sign_keys,
         "users":       users,
         "sync_config": sync_enc,
         "entries":     entries,
-        "signature":   sig,
+        "sig_users":   sig_users,
+        "sig_entries": sig_entries,
     })

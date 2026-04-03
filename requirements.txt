@@ -4,3 +4,7 @@ requests
 # Test dependencies
 pytest
 pytest-cov
+
+# Build dependencies
+pyinstaller
+pillow

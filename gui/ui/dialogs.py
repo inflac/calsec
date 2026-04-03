@@ -3,6 +3,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+import storage
 import theme
 
 _PALETTE = [
@@ -70,6 +71,154 @@ def _recurrence_summary(r: dict | None) -> str:
     return "-"
 
 
+class FetchCalendarDialog(tk.Toplevel):
+    """One-time download dialog for non-admin users who have a local key but no calendar.json.
+
+    Downloads the file from a Nextcloud WebDAV URL, verifies both signatures,
+    confirms the user's local key hash is registered, then saves the file.
+    result is True on success, False if cancelled or failed.
+    """
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.withdraw()
+        self.transient(parent)
+        self.title("Kalender herunterladen")
+        self.resizable(False, False)
+
+        self.result = False
+
+        pad = {"padx": 10, "pady": 4}
+
+        ttk.Label(self, text="calsec",
+                  font=("Cantarell", 14, "bold")).grid(
+            row=0, column=0, columnspan=2, pady=(14, 2))
+        ttk.Label(self,
+                  text="Lokaler Schlüssel gefunden, aber noch kein Kalender.\n"
+                       "Nextcloud-Zugangsdaten eingeben, um den Kalender\n"
+                       "einmalig herunterzuladen.",
+                  justify="center", foreground=theme.FG_DIM).grid(
+            row=1, column=0, columnspan=2, padx=10, pady=(0, 10))
+
+        ttk.Label(self, text="WebDAV-URL:").grid(row=2, column=0, sticky="e", **pad)
+        self._url = ttk.Entry(self, width=42)
+        self._url.grid(row=2, column=1, sticky="w", **pad)
+
+        ttk.Label(self, text="Benutzername:").grid(row=3, column=0, sticky="e", **pad)
+        self._user = ttk.Entry(self, width=42)
+        self._user.grid(row=3, column=1, sticky="w", **pad)
+
+        ttk.Label(self, text="App-Passwort:").grid(row=4, column=0, sticky="e", **pad)
+        self._pw = ttk.Entry(self, show="*", width=42)
+        self._pw.grid(row=4, column=1, sticky="w", **pad)
+
+        self._status_var = tk.StringVar()
+        ttk.Label(self, textvariable=self._status_var,
+                  foreground=theme.RED, wraplength=400,
+                  justify="center").grid(
+            row=5, column=0, columnspan=2, padx=10, pady=(6, 0))
+
+        ttk.Separator(self, orient="horizontal").grid(
+            row=6, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+
+        btn_frame = ttk.Frame(self)
+        btn_frame.grid(row=7, column=0, columnspan=2, pady=(0, 12))
+        self._dl_btn = ttk.Button(btn_frame, text="Herunterladen",
+                                   command=self._download)
+        self._dl_btn.pack(side="left", padx=6)
+        ttk.Button(btn_frame, text="Abbrechen",
+                   command=self.destroy).pack(side="left", padx=6)
+
+        self._url.focus_set()
+        self.bind("<Return>", lambda _: self._download())
+        _center_dialog(self, parent)
+
+    def _download(self):
+        url = self._url.get().strip()
+        if not url:
+            self._status_var.set("Bitte WebDAV-URL eingeben.")
+            return
+        if not url.startswith(("http://", "https://")):
+            self._status_var.set(
+                f"URL muss mit http:// oder https:// beginnen.\n"
+                f"Meintest du https://{url} ?")
+            return
+
+        user = self._user.get().strip()
+        if not user:
+            self._status_var.set("Benutzername erforderlich.")
+            return
+
+        config = {
+            "webdav_url": url,
+            "auth_user":  user,
+            "password":   self._pw.get(),
+        }
+
+        self._status_var.set("Verbinde…")
+        self._dl_btn.configure(state="disabled")
+        self.update()
+
+        try:
+            from sync import sync_pull
+            from crypto import verify_users, verify_entries, pem_to_public_key
+
+            data, msg = sync_pull(config)
+            if data is None:
+                self._status_var.set(msg)
+                self._dl_btn.configure(state="normal")
+                return
+
+            sign_keys = data.get("sign_keys", {})
+            if not sign_keys:
+                self._status_var.set(
+                    "Fehler: Datei enthält keine Signierschlüssel (v3 oder älter).")
+                self._dl_btn.configure(state="normal")
+                return
+
+            sig_users   = data.get("sig_users")
+            sig_entries = data.get("sig_entries")
+            if not sig_users or not sig_entries:
+                self._status_var.set(
+                    "Fehler: Signaturen fehlen in der heruntergeladenen Datei.")
+                self._dl_btn.configure(state="normal")
+                return
+
+            kpub_admin = pem_to_public_key(sign_keys["admin"])
+            kpub_edit  = pem_to_public_key(sign_keys["edit"])
+
+            if not verify_users(sign_keys, data.get("users", {}),
+                                 data.get("sync_config"), sig_users, kpub_admin):
+                self._status_var.set(
+                    "Fehler: Benutzersignatur ungültig — Datei manipuliert?")
+                self._dl_btn.configure(state="normal")
+                return
+
+            if not verify_entries(data.get("entries", []), sig_entries, kpub_edit):
+                self._status_var.set(
+                    "Fehler: Eintrags-Signatur ungültig — Datei manipuliert?")
+                self._dl_btn.configure(state="normal")
+                return
+
+            # Confirm at least one local key is registered in this calendar
+            local_hashes = storage.find_user_key_hashes()
+            registered = [h for h in local_hashes if h in data.get("users", {})]
+            if not registered:
+                self._status_var.set(
+                    "Fehler: Kein lokaler Schlüssel ist in diesem Kalender\n"
+                    "registriert. Bitte den Admin bitten, deinen Key hinzuzufügen.")
+                self._dl_btn.configure(state="normal")
+                return
+
+            storage.save_file(data)
+            self.result = True
+            self.destroy()
+
+        except Exception as exc:
+            self._status_var.set(f"Fehler: {exc}")
+            self._dl_btn.configure(state="normal")
+
+
 class ProvisionDialog(tk.Toplevel):
     """Shown on first start. Collects admin email + password + optional Nextcloud config."""
 
@@ -102,31 +251,26 @@ class ProvisionDialog(tk.Toplevel):
         ttk.Separator(self, orient="horizontal").grid(
             row=4, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
 
-        ttk.Label(self, text="Nextcloud Sync (URL leer lassen zum Überspringen):").grid(
+        ttk.Label(self, text="WebDAV Sync (URL leer lassen zum Überspringen):").grid(
             row=5, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 2))
 
-        ttk.Label(self, text="URL:").grid(row=6, column=0, sticky="e", **pad)
-        self._nc_url = ttk.Entry(self, width=30)
+        ttk.Label(self, text="WebDAV-URL:").grid(row=6, column=0, sticky="e", **pad)
+        self._nc_url = ttk.Entry(self, width=36)
         self._nc_url.grid(row=6, column=1, sticky="w", **pad)
 
         ttk.Label(self, text="Benutzername:").grid(row=7, column=0, sticky="e", **pad)
-        self._nc_user = ttk.Entry(self, width=30)
+        self._nc_user = ttk.Entry(self, width=36)
         self._nc_user.grid(row=7, column=1, sticky="w", **pad)
 
         ttk.Label(self, text="App-Passwort:").grid(row=8, column=0, sticky="e", **pad)
-        self._nc_pw = ttk.Entry(self, show="*", width=30)
+        self._nc_pw = ttk.Entry(self, show="*", width=36)
         self._nc_pw.grid(row=8, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="Remote-Pfad:").grid(row=9, column=0, sticky="e", **pad)
-        self._nc_path = ttk.Entry(self, width=30)
-        self._nc_path.insert(0, "/calendar.json")
-        self._nc_path.grid(row=9, column=1, sticky="w", **pad)
-
         ttk.Separator(self, orient="horizontal").grid(
-            row=10, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+            row=9, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
 
         btn_frame = ttk.Frame(self)
-        btn_frame.grid(row=11, column=0, columnspan=2, pady=(0, 10))
+        btn_frame.grid(row=10, column=0, columnspan=2, pady=(0, 10))
         ttk.Button(btn_frame, text="Schlüssel generieren",
                    command=self._confirm).pack(side="left", padx=6)
         ttk.Button(btn_frame, text="Abbrechen",
@@ -154,7 +298,7 @@ class ProvisionDialog(tk.Toplevel):
             return
 
         sync_data = None
-        url = self._nc_url.get().strip().rstrip("/")
+        url = self._nc_url.get().strip()
         if url:
             if not url.startswith(("http://", "https://")):
                 messagebox.showerror(
@@ -165,17 +309,14 @@ class ProvisionDialog(tk.Toplevel):
                 )
                 return
             nc_user = self._nc_user.get().strip()
-            nc_pw   = self._nc_pw.get()
-            nc_path = self._nc_path.get().strip() or "/calendar.json"
-            if not nc_path.startswith("/"):
-                nc_path = "/" + nc_path
             if not nc_user:
-                messagebox.showerror("Fehler", "Nextcloud-Benutzername erforderlich.",
+                messagebox.showerror("Fehler", "Benutzername erforderlich.",
                                      parent=self)
                 return
             sync_data = {
-                "url": url, "user": nc_user,
-                "password": nc_pw, "remote_path": nc_path,
+                "webdav_url": url,
+                "auth_user":  nc_user,
+                "password":   self._nc_pw.get(),
             }
 
         self.result = (email, pw1.encode(), sync_data)
@@ -325,13 +466,13 @@ class AddEntryDialog(tk.Toplevel):
 
 
 class SyncConfigDialog(tk.Toplevel):
-    """View and update the Nextcloud sync configuration."""
+    """View and update the WebDAV sync configuration (admin only)."""
 
     def __init__(self, parent, current_config: dict | None):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
-        self.title("Nextcloud Sync Settings")
+        self.title("Sync Settings")
         self.resizable(False, False)
 
         # result: dict with sync data, {} to clear, None if cancelled
@@ -339,48 +480,41 @@ class SyncConfigDialog(tk.Toplevel):
 
         pad = {"padx": 10, "pady": 4}
 
-        ttk.Label(self, text="Leave URL blank to disable sync.").grid(
+        ttk.Label(self, text="WebDAV-URL leer lassen, um Sync zu deaktivieren.").grid(
             row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(12, 6))
 
-        ttk.Label(self, text="URL:").grid(row=1, column=0, sticky="e", **pad)
-        self._url = ttk.Entry(self, width=34)
+        ttk.Label(self, text="WebDAV-URL:").grid(row=1, column=0, sticky="e", **pad)
+        self._url = ttk.Entry(self, width=40)
         self._url.grid(row=1, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="Username:").grid(row=2, column=0, sticky="e", **pad)
-        self._user = ttk.Entry(self, width=34)
+        ttk.Label(self, text="Benutzername:").grid(row=2, column=0, sticky="e", **pad)
+        self._user = ttk.Entry(self, width=40)
         self._user.grid(row=2, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="App password:").grid(row=3, column=0, sticky="e", **pad)
-        self._pw = ttk.Entry(self, show="*", width=34)
+        ttk.Label(self, text="App-Passwort:").grid(row=3, column=0, sticky="e", **pad)
+        self._pw = ttk.Entry(self, show="*", width=40)
         self._pw.grid(row=3, column=1, sticky="w", **pad)
-
-        ttk.Label(self, text="Remote path:").grid(row=4, column=0, sticky="e", **pad)
-        self._path = ttk.Entry(self, width=34)
-        self._path.grid(row=4, column=1, sticky="w", **pad)
 
         # Pre-fill with existing config
         if current_config:
-            self._url.insert(0, current_config.get("url", ""))
-            self._user.insert(0, current_config.get("user", ""))
+            self._url.insert(0, current_config.get("webdav_url", ""))
+            self._user.insert(0, current_config.get("auth_user", ""))
             self._pw.insert(0, current_config.get("password", ""))
-            self._path.insert(0, current_config.get("remote_path", "/calendar.json"))
-        else:
-            self._path.insert(0, "/calendar.json")
 
         ttk.Separator(self, orient="horizontal").grid(
-            row=5, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+            row=4, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
 
         btn_frame = ttk.Frame(self)
-        btn_frame.grid(row=6, column=0, columnspan=2, pady=(0, 10))
-        ttk.Button(btn_frame, text="Save", command=self._confirm).pack(side="left", padx=6)
-        ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side="left", padx=6)
+        btn_frame.grid(row=5, column=0, columnspan=2, pady=(0, 10))
+        ttk.Button(btn_frame, text="Speichern", command=self._confirm).pack(side="left", padx=6)
+        ttk.Button(btn_frame, text="Abbrechen", command=self.destroy).pack(side="left", padx=6)
 
         self._url.focus_set()
         self.bind("<Return>", lambda _: self._confirm())
         _center_dialog(self, parent)
 
     def _confirm(self):
-        url = self._url.get().strip().rstrip("/")
+        url = self._url.get().strip()
         if not url:
             # Disable sync
             self.result = {}
@@ -389,8 +523,8 @@ class SyncConfigDialog(tk.Toplevel):
 
         if not url.startswith(("http://", "https://")):
             messagebox.showerror(
-                "Invalid URL",
-                "URL must start with http:// or https://\n\n"
+                "Ungültige URL",
+                "URL muss mit http:// oder https:// beginnen.\n\n"
                 f"Meintest du: https://{url} ?",
                 parent=self,
             )
@@ -398,18 +532,13 @@ class SyncConfigDialog(tk.Toplevel):
 
         user = self._user.get().strip()
         if not user:
-            messagebox.showerror("Error", "Username required.", parent=self)
+            messagebox.showerror("Fehler", "Benutzername erforderlich.", parent=self)
             return
 
-        path = self._path.get().strip() or "/calendar.json"
-        if not path.startswith("/"):
-            path = "/" + path
-
         self.result = {
-            "url": url,
-            "user": user,
-            "password": self._pw.get(),
-            "remote_path": path,
+            "webdav_url": url,
+            "auth_user":  user,
+            "password":   self._pw.get(),
         }
         self.destroy()
 
@@ -718,30 +847,49 @@ class AddUserDialog(tk.Toplevel):
                         variable=self._mode, value="generate").grid(
             row=2, column=0, columnspan=3, sticky="w", padx=10)
 
-        ttk.Label(self, text="Passwort:").grid(row=3, column=0, sticky="e", **pad)
-        self._pw1 = ttk.Entry(self, show="*", width=24)
-        self._pw1.grid(row=3, column=1, columnspan=2, sticky="w", **pad)
+        self._no_pw = tk.BooleanVar(value=False)
+        ttk.Checkbutton(self, text="Ohne Passwort",
+                        variable=self._no_pw,
+                        command=self._toggle_pw).grid(
+            row=3, column=0, columnspan=3, sticky="w", padx=28)
 
-        ttk.Label(self, text="Wiederholen:").grid(row=4, column=0, sticky="e", **pad)
+        self._pw_label1 = ttk.Label(self, text="Passwort:")
+        self._pw_label1.grid(row=4, column=0, sticky="e", **pad)
+        self._pw1 = ttk.Entry(self, show="*", width=24)
+        self._pw1.grid(row=4, column=1, columnspan=2, sticky="w", **pad)
+
+        self._pw_label2 = ttk.Label(self, text="Wiederholen:")
+        self._pw_label2.grid(row=5, column=0, sticky="e", **pad)
         self._pw2 = ttk.Entry(self, show="*", width=24)
-        self._pw2.grid(row=4, column=1, columnspan=2, sticky="w", **pad)
+        self._pw2.grid(row=5, column=1, columnspan=2, sticky="w", **pad)
 
         ttk.Separator(self, orient="horizontal").grid(
-            row=5, column=0, columnspan=3, sticky="ew", padx=10, pady=6)
+            row=6, column=0, columnspan=3, sticky="ew", padx=10, pady=6)
 
         ttk.Radiobutton(self, text="Eigenen Public Key angeben (PEM):",
                         variable=self._mode, value="external").grid(
-            row=6, column=0, columnspan=3, sticky="w", padx=10)
+            row=7, column=0, columnspan=3, sticky="w", padx=10)
 
         self._kpub_text = tk.Text(self, width=38, height=6, wrap="none")
-        self._kpub_text.grid(row=7, column=0, columnspan=3,
+        self._kpub_text.grid(row=8, column=0, columnspan=3,
                               padx=10, pady=(0, 6), sticky="ew")
 
         ttk.Separator(self, orient="horizontal").grid(
-            row=8, column=0, columnspan=3, sticky="ew", padx=10, pady=6)
+            row=9, column=0, columnspan=3, sticky="ew", padx=10, pady=6)
+
+        ttk.Label(self, text="Rolle:").grid(row=10, column=0, sticky="e", **pad)
+        self._role = tk.StringVar(value="viewer")
+        role_frame = ttk.Frame(self)
+        role_frame.grid(row=10, column=1, columnspan=2, sticky="w", **pad)
+        for label, value in [("Viewer", "viewer"), ("Editor", "editor"), ("Admin", "admin")]:
+            ttk.Radiobutton(role_frame, text=label,
+                            variable=self._role, value=value).pack(side="left", padx=4)
+
+        ttk.Separator(self, orient="horizontal").grid(
+            row=11, column=0, columnspan=3, sticky="ew", padx=10, pady=6)
 
         btn_frame = ttk.Frame(self)
-        btn_frame.grid(row=9, column=0, columnspan=3, pady=(0, 10))
+        btn_frame.grid(row=12, column=0, columnspan=3, pady=(0, 10))
         ttk.Button(btn_frame, text="Hinzufügen",
                    command=self._confirm).pack(side="left", padx=6)
         ttk.Button(btn_frame, text="Abbrechen",
@@ -749,6 +897,13 @@ class AddUserDialog(tk.Toplevel):
 
         self._email.focus_set()
         _center_dialog(self, parent)
+
+    def _toggle_pw(self):
+        state = "disabled" if self._no_pw.get() else "normal"
+        self._pw1.configure(state=state)
+        self._pw2.configure(state=state)
+        self._pw_label1.configure(foreground="#888888" if self._no_pw.get() else "")
+        self._pw_label2.configure(foreground="#888888" if self._no_pw.get() else "")
 
     def _confirm(self):
         from cryptography.hazmat.primitives.serialization import load_pem_public_key
@@ -763,19 +918,22 @@ class AddUserDialog(tk.Toplevel):
         mode = self._mode.get()
 
         if mode == "generate":
-            pw1 = self._pw1.get()
-            pw2 = self._pw2.get()
-            if pw1 != pw2:
-                messagebox.showerror("Fehler",
-                                     "Passwörter stimmen nicht überein.",
-                                     parent=self)
-                return
-            if len(pw1) < 8:
-                messagebox.showerror("Fehler",
-                                     "Passwort muss mindestens 8 Zeichen haben.",
-                                     parent=self)
-                return
-            self.result = (email, None, pw1.encode())
+            if self._no_pw.get():
+                self.result = (email, None, None, self._role.get())
+            else:
+                pw1 = self._pw1.get()
+                pw2 = self._pw2.get()
+                if pw1 != pw2:
+                    messagebox.showerror("Fehler",
+                                         "Passwörter stimmen nicht überein.",
+                                         parent=self)
+                    return
+                if len(pw1) < 8:
+                    messagebox.showerror("Fehler",
+                                         "Passwort muss mindestens 8 Zeichen haben.",
+                                         parent=self)
+                    return
+                self.result = (email, None, pw1.encode(), self._role.get())
         else:
             pem_text = self._kpub_text.get("1.0", "end").strip().encode()
             if not pem_text:
@@ -790,7 +948,7 @@ class AddUserDialog(tk.Toplevel):
                                      "Ungültiger Public Key. Bitte PEM-Format verwenden.",
                                      parent=self)
                 return
-            self.result = (email, kpub, None)
+            self.result = (email, kpub, None, self._role.get())
 
         self.destroy()
 
@@ -840,10 +998,11 @@ class UserManagementDialog(tk.Toplevel):
         self._tree.delete(*self._tree.get_children())
         self._users.clear()
         self._tree.tag_configure("row", background=theme.BG_ALT)
+        role_labels = {"admin": "Admin", "editor": "Editor", "viewer": "Viewer"}
         for u in self._app.list_users():
             iid = self._tree.insert("", "end", tags=("row",), values=(
                 u["email"] or f"{u['hash']}",
-                "Admin" if u["is_admin"] else "Benutzer",
+                role_labels.get(u["role"], u["role"]),
             ))
             self._users[iid] = u
 
@@ -856,24 +1015,26 @@ class UserManagementDialog(tk.Toplevel):
         if dlg.result is None:
             return
 
-        email, kpub, password = dlg.result
+        email, kpub, password, role = dlg.result
 
         # If we'll be generating a key, ask WHERE to save it BEFORE
         # committing anything to disk / calendar.json.
         save_path = None
         if kpub is None:
+            h = storage.email_to_hash(email)
             save_path = fd.asksaveasfilename(
                 parent=self,
                 title=f"Privaten Schlüssel für {email} speichern",
                 defaultextension=".pem",
                 filetypes=[("PEM key", "*.pem")],
-                initialfile=f"key_{email.split('@')[0]}.pem",
+                initialfile=f"{h}.pem",
             )
             if not save_path:
                 return  # user cancelled — nothing written yet
 
         try:
-            kpriv_bytes = self._app.add_user(email, kpub, password)
+            kpriv_bytes = self._app.add_user(email, kpub, password, role=role,
+                                             save_locally=save_path is None)
         except RuntimeError as e:
             messagebox.showerror("Fehler", str(e), parent=self)
             return
