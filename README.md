@@ -102,7 +102,7 @@ calendar.json
     ```bash
     sha256sum calsec.zip
     ```
-2. Compare the output with the hash from the latest [release](https://github.com/inflac/calsec/releases/latest)
+2. Compare the output with the hash from the latest release
 3. If both hashes match, continue.
    If they do not match, delete your local copy and download a fresh version from the official release page.
 
