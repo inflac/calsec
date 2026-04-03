@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 
 import storage
 import theme
@@ -39,18 +39,59 @@ _PAD = {"padx": 14, "pady": 6}
 
 
 def _center_dialog(dlg: tk.Toplevel, parent: tk.BaseWidget) -> None:
-    """Compute size, center on screen, then reveal and grab."""
-    dlg.update_idletasks()
+    """Show dialog, wait until compositor has rendered it, then center on screen."""
+    dlg.deiconify()
+    dlg.wait_visibility()  # window is now truly mapped and sized by the compositor
     sw = dlg.winfo_screenwidth()
     sh = dlg.winfo_screenheight()
-    # winfo_reqwidth/height work correctly for withdrawn windows after update_idletasks
-    w = dlg.winfo_reqwidth()
-    h = dlg.winfo_reqheight()
-    # Include explicit WxH so the window manager positions it correctly
-    dlg.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
-    dlg.deiconify()
-    dlg.wait_visibility()
+    w = dlg.winfo_width()
+    h = dlg.winfo_height()
+    dlg.geometry(f"+{(sw - w) // 2}+{(sh - h) // 2}")
     dlg.grab_set()
+
+
+def _make_dialog(parent: tk.BaseWidget, title: str) -> tk.Toplevel:
+    dlg = tk.Toplevel(parent)
+    dlg.withdraw()
+    dlg.transient(parent)
+    dlg.title(title)
+    dlg.resizable(False, False)
+    dlg.minsize(540, 160)
+    return dlg
+
+
+def show_info(parent: tk.BaseWidget, title: str, message: str) -> None:
+    dlg = _make_dialog(parent, title)
+    ttk.Label(dlg, text=message, wraplength=360,
+              justify="center").pack(padx=24, pady=(20, 12))
+    ttk.Button(dlg, text="OK", command=dlg.destroy).pack(pady=(0, 16))
+    _center_dialog(dlg, parent)
+    parent.winfo_toplevel().wait_window(dlg)
+
+
+def show_error(parent: tk.BaseWidget, title: str, message: str) -> None:
+    dlg = _make_dialog(parent, title)
+    ttk.Label(dlg, text=message, wraplength=360,
+              justify="center", foreground=theme.RED).pack(padx=24, pady=(20, 12))
+    ttk.Button(dlg, text="OK", command=dlg.destroy).pack(pady=(0, 16))
+    _center_dialog(dlg, parent)
+    parent.winfo_toplevel().wait_window(dlg)
+
+
+def ask_yes_no(parent: tk.BaseWidget, title: str, message: str) -> bool:
+    result = [False]
+    dlg = _make_dialog(parent, title)
+    ttk.Label(dlg, text=message, wraplength=360,
+              justify="center").pack(padx=24, pady=(20, 12))
+    btn_frame = ttk.Frame(dlg)
+    btn_frame.pack(pady=(0, 16))
+    ttk.Button(btn_frame, text="Ja",
+               command=lambda: [result.__setitem__(0, True), dlg.destroy()]).pack(side="left", padx=6)
+    ttk.Button(btn_frame, text="Nein",
+               command=dlg.destroy).pack(side="left", padx=6)
+    _center_dialog(dlg, parent)
+    parent.winfo_toplevel().wait_window(dlg)
+    return result[0]
 
 
 def _recurrence_summary(r: dict | None) -> str:
@@ -307,8 +348,7 @@ class ProvisionDialog(tk.Toplevel):
     def _confirm(self):
         email = self._email.get().strip()
         if not email or "@" not in email:
-            messagebox.showerror("Fehler", "Bitte eine gültige E-Mail-Adresse eingeben.",
-                                 parent=self)
+            show_error(self, "Fehler", "Bitte eine gültige E-Mail-Adresse eingeben.")
             return
 
         if self._no_pw.get():
@@ -317,11 +357,10 @@ class ProvisionDialog(tk.Toplevel):
             pw1 = self._pw1.get()
             pw2 = self._pw2.get()
             if pw1 != pw2:
-                messagebox.showerror("Fehler", "Passwörter stimmen nicht überein.", parent=self)
+                show_error(self, "Fehler", "Passwörter stimmen nicht überein.")
                 return
             if len(pw1) < 8:
-                messagebox.showerror("Fehler", "Passwort muss mindestens 8 Zeichen haben.",
-                                     parent=self)
+                show_error(self, "Fehler", "Passwort muss mindestens 8 Zeichen haben.")
                 return
             password = pw1.encode()
 
@@ -329,17 +368,13 @@ class ProvisionDialog(tk.Toplevel):
         url = self._nc_url.get().strip()
         if url:
             if not url.startswith(("http://", "https://")):
-                messagebox.showerror(
-                    "Ungültige URL",
+                show_error(self, "Ungültige URL",
                     "URL muss mit http:// oder https:// beginnen.\n\n"
-                    f"Meintest du: https://{url} ?",
-                    parent=self,
-                )
+                    f"Meintest du: https://{url} ?")
                 return
             nc_user = self._nc_user.get().strip()
             if not nc_user:
-                messagebox.showerror("Fehler", "Benutzername erforderlich.",
-                                     parent=self)
+                show_error(self, "Fehler", "Benutzername erforderlich.")
                 return
             sync_data = {
                 "webdav_url": url,
@@ -468,14 +503,14 @@ class AddEntryDialog(tk.Toplevel):
 
         title = self._title.get().strip()
         if not title:
-            messagebox.showerror("Error", "Title cannot be empty.", parent=self)
+            show_error(self, "Error", "Title cannot be empty.")
             return
 
         date_str = self._date.get().strip()
         try:
             datetime.strptime(date_str, "%d.%m.%Y")
         except ValueError:
-            messagebox.showerror("Error", "Invalid date. Use DD.MM.YYYY.", parent=self)
+            show_error(self, "Error", "Invalid date. Use DD.MM.YYYY.")
             return
 
         time_str = self._time.get().strip().lower()
@@ -483,7 +518,7 @@ class AddEntryDialog(tk.Toplevel):
             try:
                 datetime.strptime(time_str, "%H:%M")
             except ValueError:
-                messagebox.showerror("Error", "Invalid time. Use HH:MM, all-day, or unknown.", parent=self)
+                show_error(self, "Error", "Invalid time. Use HH:MM, all-day, or unknown.")
                 return
 
         raw_comments = self._comments.get("1.0", "end").strip()
@@ -550,17 +585,14 @@ class SyncConfigDialog(tk.Toplevel):
             return
 
         if not url.startswith(("http://", "https://")):
-            messagebox.showerror(
-                "Ungültige URL",
+            show_error(self, "Ungültige URL",
                 "URL muss mit http:// oder https:// beginnen.\n\n"
-                f"Meintest du: https://{url} ?",
-                parent=self,
-            )
+                f"Meintest du: https://{url} ?")
             return
 
         user = self._user.get().strip()
         if not user:
-            messagebox.showerror("Fehler", "Benutzername erforderlich.", parent=self)
+            show_error(self, "Fehler", "Benutzername erforderlich.")
             return
 
         self.result = {
@@ -743,7 +775,7 @@ class RecurrenceDialog(tk.Toplevel):
             interval = int(self._interval.get())
             assert interval >= 1
         except (ValueError, AssertionError):
-            messagebox.showerror("Fehler", "Intervall muss ≥ 1 sein.", parent=self)
+            show_error(self, "Fehler", "Intervall muss ≥ 1 sein.")
             return
 
         rule = {"freq": freq, "interval": interval}
@@ -751,8 +783,7 @@ class RecurrenceDialog(tk.Toplevel):
         if freq == "weekly":
             days = [c for c in _WD_CODES if self._wd_vars[c].get()]
             if not days:
-                messagebox.showerror("Fehler",
-                    "Bitte mindestens einen Wochentag auswählen.", parent=self)
+                show_error(self, "Fehler", "Bitte mindestens einen Wochentag auswählen.")
                 return
             rule["weekdays"] = days
 
@@ -764,8 +795,7 @@ class RecurrenceDialog(tk.Toplevel):
                     day = int(self._month_day.get())
                     assert 1 <= day <= 31
                 except (ValueError, AssertionError):
-                    messagebox.showerror("Fehler",
-                        "Tag muss zwischen 1 und 31 liegen.", parent=self)
+                    show_error(self, "Fehler", "Tag muss zwischen 1 und 31 liegen.")
                     return
                 rule["month_day"] = day
             else:
@@ -779,8 +809,7 @@ class RecurrenceDialog(tk.Toplevel):
             try:
                 datetime.strptime(until, "%d.%m.%Y")
             except ValueError:
-                messagebox.showerror("Fehler",
-                    "Ungültiges Enddatum. Format: DD.MM.YYYY", parent=self)
+                show_error(self, "Fehler", "Ungültiges Enddatum. Format: DD.MM.YYYY")
                 return
             rule["until"] = until
         elif end_mode == "count":
@@ -788,7 +817,7 @@ class RecurrenceDialog(tk.Toplevel):
                 count = int(self._count.get())
                 assert count >= 1
             except (ValueError, AssertionError):
-                messagebox.showerror("Fehler", "Anzahl muss ≥ 1 sein.", parent=self)
+                show_error(self, "Fehler", "Anzahl muss ≥ 1 sein.")
                 return
             rule["count"] = count
 
@@ -938,9 +967,7 @@ class AddUserDialog(tk.Toplevel):
 
         email = self._email.get().strip()
         if not email or "@" not in email:
-            messagebox.showerror("Fehler",
-                                 "Bitte eine gültige E-Mail-Adresse eingeben.",
-                                 parent=self)
+            show_error(self, "Fehler", "Bitte eine gültige E-Mail-Adresse eingeben.")
             return
 
         mode = self._mode.get()
@@ -952,29 +979,21 @@ class AddUserDialog(tk.Toplevel):
                 pw1 = self._pw1.get()
                 pw2 = self._pw2.get()
                 if pw1 != pw2:
-                    messagebox.showerror("Fehler",
-                                         "Passwörter stimmen nicht überein.",
-                                         parent=self)
+                    show_error(self, "Fehler", "Passwörter stimmen nicht überein.")
                     return
                 if len(pw1) < 8:
-                    messagebox.showerror("Fehler",
-                                         "Passwort muss mindestens 8 Zeichen haben.",
-                                         parent=self)
+                    show_error(self, "Fehler", "Passwort muss mindestens 8 Zeichen haben.")
                     return
                 self.result = (email, None, pw1.encode(), self._role.get())
         else:
             pem_text = self._kpub_text.get("1.0", "end").strip().encode()
             if not pem_text:
-                messagebox.showerror("Fehler",
-                                     "Bitte einen Public Key (PEM) eingeben.",
-                                     parent=self)
+                show_error(self, "Fehler", "Bitte einen Public Key (PEM) eingeben.")
                 return
             try:
                 kpub = load_pem_public_key(pem_text)
             except Exception:
-                messagebox.showerror("Fehler",
-                                     "Ungültiger Public Key. Bitte PEM-Format verwenden.",
-                                     parent=self)
+                show_error(self, "Fehler", "Ungültiger Public Key. Bitte PEM-Format verwenden.")
                 return
             self.result = (email, kpub, None, self._role.get())
 
@@ -989,7 +1008,9 @@ class UserManagementDialog(tk.Toplevel):
         self.withdraw()
         self.transient(parent)
         self.title("Benutzerverwaltung")
-        self.resizable(False, False)
+        self.resizable(True, True)
+        self.minsize(600, 340)
+        self.geometry("660x420")
         self._app = app
 
         ttk.Button(self, text="+ Benutzer hinzufügen",
@@ -1005,8 +1026,8 @@ class UserManagementDialog(tk.Toplevel):
                                   selectmode="browse", height=8)
         self._tree.heading("email", text="E-Mail")
         self._tree.heading("role",  text="Rolle")
-        self._tree.column("email", width=240)
-        self._tree.column("role",  width=80, anchor="center")
+        self._tree.column("email", width=440)
+        self._tree.column("role",  width=120, anchor="center")
 
         sb = ttk.Scrollbar(frame, orient="vertical", command=self._tree.yview)
         self._tree.configure(yscrollcommand=sb.set)
@@ -1064,47 +1085,37 @@ class UserManagementDialog(tk.Toplevel):
             kpriv_bytes = self._app.add_user(email, kpub, password, role=role,
                                              save_locally=save_path is None)
         except RuntimeError as e:
-            messagebox.showerror("Fehler", str(e), parent=self)
+            show_error(self, "Fehler", str(e))
             return
 
         if kpriv_bytes and save_path:
             try:
                 with open(save_path, "wb") as f:
                     f.write(kpriv_bytes)
-                messagebox.showinfo(
-                    "Gespeichert",
+                show_info(self, "Gespeichert",
                     f"Schlüssel gespeichert:\n{save_path}\n\n"
-                    "Diesen sicher an den Benutzer übertragen.",
-                    parent=self,
-                )
+                    "Diesen sicher an den Benutzer übertragen.")
             except Exception as exc:
-                messagebox.showerror("Fehler",
-                                     f"Speichern fehlgeschlagen: {exc}",
-                                     parent=self)
+                show_error(self, "Fehler", f"Speichern fehlgeschlagen: {exc}")
         self._refresh()
 
     def _remove_selected(self):
         sel = self._tree.selection()
         if not sel:
-            messagebox.showinfo("Hinweis",
-                                "Zuerst einen Benutzer auswählen.",
-                                parent=self)
+            show_info(self, "Hinweis", "Zuerst einen Benutzer auswählen.")
             return
         u = self._users.get(sel[0])
         if u is None:
             return
         label = u["email"] or u["hash"][:16]
-        if not messagebox.askyesno(
-            "Benutzer entfernen",
+        if not ask_yes_no(self, "Benutzer entfernen",
             f"Benutzer '{label}' entfernen?\n\n"
             "Der Kalender-Schlüssel wird dabei rotiert "
-            "(alle Einträge werden neu verschlüsselt).",
-            parent=self,
-        ):
+            "(alle Einträge werden neu verschlüsselt)."):
             return
         try:
             self._app.remove_user(u["hash"])
         except RuntimeError as e:
-            messagebox.showerror("Fehler", str(e), parent=self)
+            show_error(self, "Fehler", str(e))
             return
         self._refresh()

@@ -122,9 +122,9 @@ calendar.json
     ./install_calsec.sh
     ```
 
-To uninstall CalSec, run the installer with the `--uninstall` flag:
+To uninstall CalSec, run the installer again and choose **"Uninstall"** from the menu:
 ```bash
-./install_calsec.sh --uninstall
+./install_calsec.sh
 ```
 You will be asked whether to also delete your keys. Keys are **not** deleted by default.
 
@@ -167,7 +167,7 @@ You can now start CalSec from:
 - the Applications menu  
 - or via terminal:
     ```bash
-    /live/persistence/TailsData_unlocked/calsec/calsec
+    /live/persistence/TailsData_unlocked/programs/calsec/calsec
     ```
 
 
@@ -175,20 +175,24 @@ You can now start CalSec from:
 CalSec stores its data inside the persistent storage:
 ```bash
 /live/persistence/TailsData_unlocked/
-└── calsec/
+└── programs/calsec/
   ├── calsec              # binary
   ├── icon.png            # application icon
+  ├── install_calsec.sh   # installer (for uninstall)
   ├── calendar.json       # encrypted calendar (after sync)
   ├── keys/               # private keys (SECRET!)
   └── pubkeys/            # public keys for sharing
 ```
 
-The desktop entry is stored persistently at:
+The desktop entry is stored persistently via the Dotfiles feature at:
 ```bash
-/home/amnesia/Persistent/.local/share/applications/
+/live/persistence/TailsData_unlocked/dotfiles/.local/share/applications/
 └── calsec.desktop
 ```
 A symlink is created at `/home/amnesia/.local/share/applications/calsec.desktop` for the current session.
+
+> [!NOTE]
+> The **Dotfiles** feature must be enabled in Tails Persistent Storage settings for the application menu entry to survive a reboot.
 
 User preferences (e.g. GUI color scheme) are stored at:
 ```bash

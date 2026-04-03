@@ -4,12 +4,13 @@ import calendar as _cal_mod
 from datetime import datetime, date as _date
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 
 import settings
 import theme
 from ui.dialogs import (AddEntryDialog, ViewEntryDialog,
-                        SyncConfigDialog, UserManagementDialog)
+                        SyncConfigDialog, UserManagementDialog,
+                        show_info, show_error, ask_yes_no)
 
 
 _GERMAN_MONTHS = [
@@ -134,8 +135,9 @@ class MainWindow(ttk.Frame):
 
         # ── Status bar ────────────────────────────────────────────────────────
         self._status_var = tk.StringVar()
-        ttk.Label(self, textvariable=self._status_var,
-                  relief="sunken", anchor="w").pack(side="bottom", fill="x")
+        self._status_label = tk.Label(self, textvariable=self._status_var,
+                  relief="sunken", anchor="w", bg=theme.BG, fg=theme.FG)
+        self._status_label.pack(side="bottom", fill="x")
 
     # ── Month navigation ──────────────────────────────────────────────────────
 
@@ -248,6 +250,7 @@ class MainWindow(ttk.Frame):
 
     def _set_status(self, msg: str, error: bool = False):
         self._status_var.set(f"  {msg}")
+        self._status_label.configure(fg=theme.RED if error else theme.FG)
 
     # ── Selection helpers ─────────────────────────────────────────────────────
 
@@ -282,7 +285,7 @@ class MainWindow(ttk.Frame):
                 recurrence=recurrence, on_sync_done=self._on_sync_done,
             )
         except Exception as exc:
-            messagebox.showerror("Error", str(exc), parent=self)
+            show_error(self, "Error", str(exc))
             return
 
         # Jump to the month of the new entry
@@ -298,8 +301,7 @@ class MainWindow(ttk.Frame):
     def _edit(self):
         ids = self._selected_base_ids()
         if len(ids) != 1:
-            messagebox.showinfo("Edit",
-                "Genau einen Eintrag zum Bearbeiten auswählen.", parent=self)
+            show_info(self, "Edit", "Genau einen Eintrag zum Bearbeiten auswählen.")
             return
 
         entry_id = ids[0]
@@ -320,7 +322,7 @@ class MainWindow(ttk.Frame):
                 recurrence=recurrence, on_sync_done=self._on_sync_done,
             )
         except Exception as exc:
-            messagebox.showerror("Error", str(exc), parent=self)
+            show_error(self, "Error", str(exc))
             return
 
         self.refresh()
@@ -342,24 +344,19 @@ class MainWindow(ttk.Frame):
     def _delete(self):
         ids = self._selected_base_ids()
         if not ids:
-            messagebox.showinfo("Delete",
-                "Zuerst einen oder mehrere Einträge auswählen.", parent=self)
+            show_info(self, "Delete", "Zuerst einen oder mehrere Einträge auswählen.")
             return
 
         count = len(ids)
         noun = "Eintrag" if count == 1 else "Einträge"
-        if not messagebox.askyesno(
-            "Löschen bestätigen",
-            f"{count} {noun} löschen?",
-            parent=self,
-        ):
+        if not ask_yes_no(self, "Löschen bestätigen", f"{count} {noun} löschen?"):
             return
 
         try:
             deleted = self._app.delete_entries(ids,
                 on_sync_done=self._on_sync_done)
         except Exception as exc:
-            messagebox.showerror("Error", str(exc), parent=self)
+            show_error(self, "Error", str(exc))
             return
 
         self.refresh()
@@ -379,7 +376,7 @@ class MainWindow(ttk.Frame):
         try:
             self._app.update_sync_config(sync_data, on_sync_done=self._on_sync_done)
         except Exception as exc:
-            messagebox.showerror("Error", str(exc), parent=self)
+            show_error(self, "Error", str(exc))
             return
 
         if sync_data:
@@ -396,5 +393,6 @@ class MainWindow(ttk.Frame):
         self._app.sync_pull(on_done=self._on_sync_done)
 
     def _on_sync_done(self, msg: str):
-        self.after(0, lambda: self._set_status(msg or "Sync abgeschlossen."))
+        is_error = bool(msg and msg.startswith("Sync error"))
+        self.after(0, lambda: self._set_status(msg or "Sync abgeschlossen.", error=is_error))
         self.after(0, self.refresh)

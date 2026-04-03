@@ -1,5 +1,5 @@
 cryptography
-requests
+requests[socks]
 
 # Test dependencies
 pytest

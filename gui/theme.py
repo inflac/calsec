@@ -160,6 +160,7 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
     s.configure("TCheckbutton",
         background=BG, foreground=FG,
         focuscolor=ACCENT,
+        indicatorsize=16, padding=(4, 4),
     )
     s.map("TCheckbutton",
         background=[("active", BG), ("disabled", BG)],
@@ -169,6 +170,7 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
     s.configure("TRadiobutton",
         background=BG, foreground=FG,
         focuscolor=ACCENT,
+        indicatorsize=16, padding=(4, 4),
     )
     s.map("TRadiobutton",
         background=[("active", BG), ("disabled", BG)],
@@ -204,7 +206,7 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
         # are handled exclusively through tag_configure in main_window.py.
         foreground=FG,
         fieldbackground=BG_ALT, bordercolor=BORDER,
-        rowheight=30, font=F,
+        rowheight=36, font=F,
     )
     s.configure("Treeview.Heading",
         background=BG_PANEL, foreground=FG_DIM,

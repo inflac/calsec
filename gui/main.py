@@ -3,7 +3,7 @@
 import sys
 import os
 import tkinter as tk
-from tkinter import ttk, messagebox, PhotoImage
+from tkinter import ttk, PhotoImage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -123,21 +123,36 @@ def _patch_toplevel_icon(icon_path: str) -> None:
     tk.Toplevel.__init__ = _patched_init
 
 
+def _patch_toplevel_minsize() -> None:
+    """Ensure all Toplevel windows have a readable minimum size."""
+    _orig_init = tk.Toplevel.__init__
+
+    def _patched_init(self, *args, **kwargs):
+        _orig_init(self, *args, **kwargs)
+        try:
+            self.minsize(540, 180)
+        except Exception:
+            pass
+
+    tk.Toplevel.__init__ = _patched_init
+
+
 def _center_on_screen(win: tk.Tk) -> None:
     win.update_idletasks()
     sw = win.winfo_screenwidth()
     sh = win.winfo_screenheight()
-    w = win.winfo_width()
-    h = win.winfo_height()
+    w = max(win.winfo_width(), win.winfo_reqwidth())
+    h = max(win.winfo_height(), win.winfo_reqheight())
     win.geometry(f"+{(sw - w) // 2}+{(sh - h) // 2}")
 
 
 class Application(tk.Tk):
 
     def __init__(self):
-        super().__init__()
+        super().__init__(className="CalSec")
         self.title("calsec")
         self.minsize(680, 440)
+        _patch_toplevel_minsize()
         _base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
         if sys.platform.startswith("win"):
@@ -189,13 +204,11 @@ class Application(tk.Tk):
         matching      = [h for h in key_hashes if h in users_in_file]
 
         if not matching:
-            messagebox.showerror(
-                "Kein Benutzer",
+            from ui.dialogs import show_error
+            show_error(self, "Kein Benutzer",
                 f"Kein passender Schlüssel in\n'{storage.KEYS_DIR}'\ngefunden.\n\n"
                 "Bitte den eigenen Schlüssel (sha256(localpart).pem) "
-                "dort ablegen.",
-                parent=self,
-            )
+                "dort ablegen.")
             self.destroy()
             return
 
@@ -208,7 +221,7 @@ class Application(tk.Tk):
         ))
 
     def _show_provision(self):
-        from ui.dialogs import ProvisionDialog
+        from ui.dialogs import ProvisionDialog, show_info, show_error
         dlg = ProvisionDialog(self)
         self.wait_window(dlg)
 
@@ -220,14 +233,14 @@ class Application(tk.Tk):
         try:
             storage.provision(email, password, sync_data)
         except RuntimeError as e:
-            messagebox.showerror("Error", str(e), parent=self)
+            show_error(self, "Error", str(e))
             self.destroy()
             return
 
-        messagebox.showinfo(
+        show_info(
+            self,
             "Setup abgeschlossen",
             "Schlüssel generiert." + (" Bitte mit dem Passwort entsperren." if password else ""),
-            parent=self,
         )
         self._show_login()
 

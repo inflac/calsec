@@ -4,6 +4,11 @@ import os
 
 from storage import DATA_FILE
 
+_TOR_PROXIES = {
+    "http":  "socks5h://127.0.0.1:9050",
+    "https": "socks5h://127.0.0.1:9050",
+}
+
 
 def sync_push(config) -> str:
     """Upload calendar.json to a WebDAV URL via PUT. Returns a status message."""
@@ -31,6 +36,7 @@ def sync_push(config) -> str:
         response = requests.put(
             url, data=data, auth=auth,
             headers={"Content-Type": "application/json"},
+            proxies=_TOR_PROXIES,
             timeout=30,
         )
     except requests.exceptions.MissingSchema:
@@ -70,7 +76,7 @@ def sync_pull(config) -> tuple:
     auth = (config["auth_user"], config["password"])
 
     try:
-        response = requests.get(url, auth=auth, timeout=30)
+        response = requests.get(url, auth=auth, proxies=_TOR_PROXIES, timeout=30)
     except requests.exceptions.MissingSchema:
         return (None, f"Sync error: Ungültige URL '{url}' — "
                 "URL muss mit http:// oder https:// beginnen.")

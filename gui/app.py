@@ -388,6 +388,16 @@ class CalendarApp:
                      time_str: str, comments: list[str],
                      color: str | None = None, recurrence: dict | None = None,
                      on_sync_done=None):
+        existing = next((e["data"] for e in self.buffer if e["id"] == entry_id), None)
+        if existing is not None:
+            if (existing.get("title") == title
+                    and existing.get("date") == date_str
+                    and existing.get("time") == time_str
+                    and existing.get("comments", []) == comments
+                    and existing.get("color") == color
+                    and existing.get("recurrence") == recurrence):
+                return  # nothing changed — skip save and sync
+
         date_dt = datetime.strptime(date_str, "%d.%m.%Y")
         if time_str not in ("all-day", "unknown"):
             t = datetime.strptime(time_str, "%H:%M")
