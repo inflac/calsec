@@ -1,0 +1,6 @@
+cryptography
+requests
+
+# Test dependencies
+pytest
+pytest-cov

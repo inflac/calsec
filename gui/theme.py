@@ -142,6 +142,39 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
         bordercolor=[("focus", ACCENT), ("active", ACCENT)],
     )
 
+    s.configure("TCombobox",
+        fieldbackground=BG_ALT, background=BG_ALT,
+        foreground=FG, arrowcolor=FG,
+        bordercolor=BORDER, relief="flat", padding=4,
+    )
+    s.map("TCombobox",
+        fieldbackground=[("readonly", BG_ALT), ("disabled", BG_PANEL)],
+        background=[("active", BG_ALT), ("readonly", BG_ALT)],
+        foreground=[("readonly", FG), ("disabled", FG_DIM)],
+        selectbackground=[("readonly", BG_ALT)],
+        selectforeground=[("readonly", FG)],
+        bordercolor=[("focus", ACCENT), ("active", ACCENT)],
+        arrowcolor=[("active", FG), ("disabled", FG_DIM)],
+    )
+
+    s.configure("TCheckbutton",
+        background=BG, foreground=FG,
+        focuscolor=ACCENT,
+    )
+    s.map("TCheckbutton",
+        background=[("active", BG), ("disabled", BG)],
+        foreground=[("disabled", FG_DIM)],
+    )
+
+    s.configure("TRadiobutton",
+        background=BG, foreground=FG,
+        focuscolor=ACCENT,
+    )
+    s.map("TRadiobutton",
+        background=[("active", BG), ("disabled", BG)],
+        foreground=[("disabled", FG_DIM)],
+    )
+
     s.configure("TButton",
         background=BG_ALT, foreground=FG,
         bordercolor=BORDER, relief="flat",
@@ -166,7 +199,10 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
     )
 
     s.configure("Treeview",
-        background=BG_ALT, foreground=FG,
+        # background is intentionally omitted: the clam theme applies it as
+        # a global override that wins over per-row tag backgrounds. Row colors
+        # are handled exclusively through tag_configure in main_window.py.
+        foreground=FG,
         fieldbackground=BG_ALT, bordercolor=BORDER,
         rowheight=26, font=F,
     )

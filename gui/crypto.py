@@ -5,108 +5,115 @@ import os
 import base64
 
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 
-def b64(x): return base64.b64encode(x).decode()
-def b64d(x): return base64.b64decode(x)
+def b64(x: bytes) -> str:
+    return base64.b64encode(x).decode()
 
 
-def derive_key(shared, salt):
+def b64d(x: str) -> bytes:
+    return base64.b64decode(x)
+
+
+def derive_key(shared: bytes, salt: bytes) -> bytes:
     return HKDF(
-        algorithm=hashes.SHA256(),
-        length=32,
-        salt=salt,
-        info=b'calsec-v2'
+        algorithm=hashes.SHA256(), length=32,
+        salt=salt, info=b"calsec-v2",
     ).derive(shared)
 
 
-def canonical_file(entries, sync_config_enc, version):
+# ── Symmetric (AES-256-GCM) ───────────────────────────────────────────────────
+
+def sym_encrypt(key: bytes, plaintext: bytes, aad: bytes | None = None) -> dict:
+    """AES-256-GCM encrypt. Returns {iv, ct} as base64 strings."""
+    iv = os.urandom(12)
+    ct = AESGCM(key).encrypt(iv, plaintext, aad)
+    return {"iv": b64(iv), "ct": b64(ct)}
+
+
+def sym_decrypt(key: bytes, enc: dict, aad: bytes | None = None) -> bytes:
+    """AES-256-GCM decrypt."""
+    return AESGCM(key).decrypt(b64d(enc["iv"]), b64d(enc["ct"]), aad)
+
+
+# ── ECIES (EC public-key encryption) ─────────────────────────────────────────
+
+def ecies_encrypt(kpub: ec.EllipticCurvePublicKey, plaintext: bytes) -> dict:
+    """Encrypt *plaintext* to *kpub* via ephemeral ECDH + HKDF + AES-256-GCM.
+    Returns {kpub_eph, salt, iv, ct} as base64 strings."""
+    kpriv_eph = ec.generate_private_key(ec.SECP256R1())
+    shared = kpriv_eph.exchange(ec.ECDH(), kpub)
+    salt = os.urandom(16)
+    wrap_key = derive_key(shared, salt)
+    kpub_eph_bytes = kpriv_eph.public_key().public_bytes(
+        serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+    enc = sym_encrypt(wrap_key, plaintext)
+    enc["kpub_eph"] = b64(kpub_eph_bytes)
+    enc["salt"] = b64(salt)
+    return enc  # {kpub_eph, salt, iv, ct}
+
+
+def ecies_decrypt(kpriv: ec.EllipticCurvePrivateKey, enc: dict) -> bytes:
+    """Decrypt ECIES data using *kpriv*."""
+    kpub_eph = ec.EllipticCurvePublicKey.from_encoded_point(
+        ec.SECP256R1(), b64d(enc["kpub_eph"]))
+    shared = kpriv.exchange(ec.ECDH(), kpub_eph)
+    wrap_key = derive_key(shared, b64d(enc["salt"]))
+    return sym_decrypt(wrap_key, enc)
+
+
+# ── Entry encryption ──────────────────────────────────────────────────────────
+
+def encrypt_entry(data: dict, sym_key_cal: bytes) -> dict:
+    """Encrypt a calendar entry with a per-entry AES-256 key wrapped by sym_key_cal.
+    Entry ID is used as AAD to prevent entry substitution attacks."""
+    entry_key = os.urandom(32)
+    entry_id = data["id"].encode()
+    return {
+        "id":            data["id"],
+        "entry_key_enc": sym_encrypt(sym_key_cal, entry_key),
+        "data_enc":      sym_encrypt(entry_key, json.dumps(data).encode(), aad=entry_id),
+    }
+
+
+def decrypt_entry(enc_entry: dict, sym_key_cal: bytes) -> dict:
+    """Decrypt a calendar entry."""
+    entry_id = enc_entry["id"].encode()
+    entry_key = sym_decrypt(sym_key_cal, enc_entry["entry_key_enc"])
+    plaintext = sym_decrypt(entry_key, enc_entry["data_enc"], aad=entry_id)
+    return json.loads(plaintext)
+
+
+# ── File signing ──────────────────────────────────────────────────────────────
+
+def _canonical(version: int, users: dict, entries: list, sync_config_enc) -> bytes:
+    """Deterministic JSON encoding of the fields covered by the signature."""
     return json.dumps(
-        {"entries": entries, "sync_config": sync_config_enc, "version": version},
-        sort_keys=True, separators=(',', ':')
+        {"version": version, "users": users,
+         "entries": entries, "sync_config": sync_config_enc},
+        sort_keys=True, separators=(",", ":"),
     ).encode()
 
 
-def sign_file(entries, sync_config_enc, version, private_key):
-    data = canonical_file(entries, sync_config_enc, version)
-    sig = private_key.sign(data, ec.ECDSA(hashes.SHA256()))
+def sign_file(version: int, users: dict, entries: list,
+              sync_config_enc, kpriv_sign) -> str:
+    sig = kpriv_sign.sign(
+        _canonical(version, users, entries, sync_config_enc),
+        ec.ECDSA(hashes.SHA256()))
     return b64(sig)
 
 
-def verify_file(entries, sync_config_enc, version, signature_b64, public_key):
-    data = canonical_file(entries, sync_config_enc, version)
+def verify_file(version: int, users: dict, entries: list,
+                sync_config_enc, signature_b64: str, kpub_sign) -> bool:
     try:
-        public_key.verify(b64d(signature_b64), data, ec.ECDSA(hashes.SHA256()))
+        kpub_sign.verify(
+            b64d(signature_b64),
+            _canonical(version, users, entries, sync_config_enc),
+            ec.ECDSA(hashes.SHA256()))
         return True
     except InvalidSignature:
         return False
-
-
-def wrap_key(aes_key, public_key):
-    eph = ec.generate_private_key(ec.SECP256R1())
-    eph_pub_bytes = eph.public_key().public_bytes(
-        serialization.Encoding.X962,
-        serialization.PublicFormat.UncompressedPoint
-    )
-
-    salt = os.urandom(32)
-    shared = eph.exchange(ec.ECDH(), public_key)
-    derived = derive_key(shared, salt)
-
-    aesgcm = AESGCM(derived)
-    iv = os.urandom(12)
-    wrapped = aesgcm.encrypt(iv, aes_key, eph_pub_bytes)
-
-    return {
-        "ephemeral_pub": b64(eph_pub_bytes),
-        "iv_wrap": b64(iv),
-        "wrapped_key": b64(wrapped),
-        "hkdf_salt": b64(salt)
-    }
-
-
-def unwrap_key(entry, private_key):
-    eph_pub_bytes = b64d(entry["ephemeral_pub"])
-    eph_pub = ec.EllipticCurvePublicKey.from_encoded_point(ec.SECP256R1(), eph_pub_bytes)
-
-    salt = b64d(entry["hkdf_salt"])
-    shared = private_key.exchange(ec.ECDH(), eph_pub)
-    derived = derive_key(shared, salt)
-
-    aesgcm = AESGCM(derived)
-    return aesgcm.decrypt(b64d(entry["iv_wrap"]), b64d(entry["wrapped_key"]), eph_pub_bytes)
-
-
-def encrypt_entry(entry, public_key):
-    aes_key = AESGCM.generate_key(bit_length=256)
-    aesgcm = AESGCM(aes_key)
-    iv = os.urandom(12)
-
-    plaintext = json.dumps(entry).encode()
-    ciphertext = aesgcm.encrypt(iv, plaintext, entry["id"].encode())
-
-    wrapped = wrap_key(aes_key, public_key)
-
-    return {
-        "id": entry["id"],
-        "iv": b64(iv),
-        "ciphertext": b64(ciphertext),
-        **wrapped
-    }
-
-
-def decrypt_entry(entry, private_key):
-    aes_key = unwrap_key(entry, private_key)
-
-    aesgcm = AESGCM(aes_key)
-    plaintext = aesgcm.decrypt(
-        b64d(entry["iv"]),
-        b64d(entry["ciphertext"]),
-        entry["id"].encode()
-    )
-
-    return json.loads(plaintext.decode())
