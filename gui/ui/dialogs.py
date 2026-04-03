@@ -34,14 +34,20 @@ _FREQ_UNITS = {
 _POS_OPTS = [("1.", "1"), ("2.", "2"), ("3.", "3"), ("4.", "4"), ("Letzten", "-1")]
 
 
+# Default padding for dialog form rows
+_PAD = {"padx": 14, "pady": 6}
+
+
 def _center_dialog(dlg: tk.Toplevel, parent: tk.BaseWidget) -> None:
-    """Compute size, center on parent, then reveal and grab."""
+    """Compute size, center on screen, then reveal and grab."""
     dlg.update_idletasks()
-    cx = parent.winfo_rootx() + parent.winfo_width() // 2
-    cy = parent.winfo_rooty() + parent.winfo_height() // 2
-    dlg.geometry(f"+{cx - dlg.winfo_reqwidth() // 2}+{cy - dlg.winfo_reqheight() // 2}")
+    sw = dlg.winfo_screenwidth()
+    sh = dlg.winfo_screenheight()
+    w  = dlg.winfo_reqwidth()
+    h  = dlg.winfo_reqheight()
+    dlg.geometry(f"+{(sw - w) // 2}+{(sh - h) // 2}")
     dlg.deiconify()
-    dlg.wait_visibility()  # wait for WM to actually map and paint the window
+    dlg.wait_visibility()
     dlg.grab_set()
 
 
@@ -88,7 +94,7 @@ class FetchCalendarDialog(tk.Toplevel):
 
         self.result = False
 
-        pad = {"padx": 10, "pady": 4}
+        pad = _PAD
 
         ttk.Label(self, text="calsec",
                   font=("Cantarell", 14, "bold")).grid(
@@ -231,7 +237,7 @@ class ProvisionDialog(tk.Toplevel):
 
         self.result = None  # set to (email, password_bytes, sync_data_or_None) on confirm
 
-        pad = {"padx": 10, "pady": 4}
+        pad = _PAD
 
         ttk.Label(self, text="Admin-Konto einrichten:").grid(
             row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(12, 2))
@@ -341,7 +347,7 @@ class AddEntryDialog(tk.Toplevel):
         self._color      = entry.get("color")      if entry else None
         self._recurrence = entry.get("recurrence") if entry else None
 
-        pad = {"padx": 10, "pady": 4}
+        pad = _PAD
 
         ttk.Label(self, text="Title:").grid(row=0, column=0, sticky="e", **pad)
         self._title = ttk.Entry(self, width=30)
@@ -478,7 +484,7 @@ class SyncConfigDialog(tk.Toplevel):
         # result: dict with sync data, {} to clear, None if cancelled
         self.result = None
 
-        pad = {"padx": 10, "pady": 4}
+        pad = _PAD
 
         ttk.Label(self, text="WebDAV-URL leer lassen, um Sync zu deaktivieren.").grid(
             row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(12, 6))
@@ -833,7 +839,7 @@ class AddUserDialog(tk.Toplevel):
         # password_or_None — bytes if keypair should be generated with this password
         self.result = None
 
-        pad = {"padx": 10, "pady": 4}
+        pad = _PAD
 
         ttk.Label(self, text="E-Mail:").grid(row=0, column=0, sticky="e", **pad)
         self._email = ttk.Entry(self, width=32)

@@ -4,7 +4,12 @@
     {
       "label": "Run calsec",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "windows": {
+        "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+      },
+      "linux": {
+        "command": "${workspaceFolder}/.venv/bin/python"
+      },
       "args": ["${workspaceFolder}/gui/main.py"],
       "group": {
         "kind": "build",
@@ -14,10 +19,16 @@
         "reveal": "always"
       }
     },
+
     {
       "label": "Run tests",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "windows": {
+        "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+      },
+      "linux": {
+        "command": "${workspaceFolder}/.venv/bin/python"
+      },
       "args": ["-m", "pytest", "tests/", "-v"],
       "group": {
         "kind": "test",
@@ -27,58 +38,117 @@
         "reveal": "always"
       }
     },
+
     {
       "label": "Run tests with coverage",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "args": ["-m", "pytest", "tests/", "-v", "--cov=gui", "--cov-report=term-missing", "--cov-report=html:coverage_html"],
+      "windows": {
+        "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
+      },
+      "linux": {
+        "command": "${workspaceFolder}/.venv/bin/python"
+      },
+      "args": [
+        "-m", "pytest",
+        "tests/",
+        "-v",
+        "--cov=gui",
+        "--cov-report=term-missing",
+        "--cov-report=html:coverage_html"
+      ],
       "group": "test",
       "presentation": {
         "reveal": "always"
       }
     },
+
     {
       "label": "Clean build",
       "type": "shell",
-      "command": "& { Remove-Item -Recurse -Force -ErrorAction SilentlyContinue build/work; Remove-Item -Force -ErrorAction SilentlyContinue build/calsec.exe }",
-      "args": [],
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-Command",
+          "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue build/work; Remove-Item -Force -ErrorAction SilentlyContinue build/calsec.exe"
+        ]
+      },
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "rm -rf build/work build/calsec"
+        ]
+      },
       "presentation": {
         "reveal": "silent"
       }
     },
+
     {
       "label": "Build binary",
       "type": "shell",
-      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "args": [
-        "-m", "PyInstaller",
-        "--onefile",
-        "--name", "calsec",
-        "--noconsole",
-        "--icon", "${workspaceFolder}/icon.ico",
-        "--add-data", "${workspaceFolder}/icon.ico:.",
-        "--collect-all", "cryptography",
-        "--distpath", "build",
-        "--workpath", "build/work",
-        "--specpath", "build/spec",
-        "gui/main.py"
-      ],
       "dependsOn": ["Clean build"],
+
+      "windows": {
+        "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+        "args": [
+          "-m", "PyInstaller",
+          "--onefile",
+          "--name", "calsec",
+          "--noconsole",
+          "--icon", "${workspaceFolder}/icon.ico",
+          "--add-data", "${workspaceFolder}/icon.ico:.",
+          "--collect-all", "cryptography",
+          "--distpath", "build",
+          "--workpath", "build/work",
+          "--specpath", "build/spec",
+          "gui/main.py"
+        ]
+      },
+
+      "linux": {
+        "command": "${workspaceFolder}/.venv/bin/python",
+        "args": [
+          "-m", "PyInstaller",
+          "--onefile",
+          "--name", "calsec",
+          "--noconsole",
+          "--add-data", "${workspaceFolder}/icon.png:.",
+          "--collect-all", "cryptography",
+          "--distpath", "build",
+          "--workpath", "build/work",
+          "--specpath", "build/spec",
+          "gui/main.py"
+        ]
+      },
+
       "group": "build",
       "presentation": {
         "reveal": "always"
       }
     },
+
     {
       "label": "Build & Package",
       "type": "shell",
-      "command": "Compress-Archive",
-      "args": [
-        "-Force",
-        "-Path", "build/calsec,icon.png,calsec.desktop,install_calsec.sh",
-        "-DestinationPath", "calsec.zip"
-      ],
       "dependsOn": ["Build binary"],
+
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-Command",
+          "Compress-Archive -Force -Path build/calsec.exe,icon.png,icon.ico,calsec.desktop,install_calsec.sh,README.md -DestinationPath calsec.zip"
+        ]
+      },
+
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "zip -j calsec.zip build/calsec icon.png calsec.desktop install_calsec.sh README.md"
+        ]
+      },
+
       "group": "build",
       "presentation": {
         "reveal": "always"

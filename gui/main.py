@@ -3,7 +3,7 @@
 import sys
 import os
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, PhotoImage
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -108,6 +108,9 @@ class LoginFrame(ttk.Frame):
 
 
 def _patch_toplevel_icon(icon_path: str) -> None:
+    if not icon_path.endswith(".ico"):
+        return  # nur Windows
+
     _orig_init = tk.Toplevel.__init__
 
     def _patched_init(self, *args, **kwargs):
@@ -120,17 +123,34 @@ def _patch_toplevel_icon(icon_path: str) -> None:
     tk.Toplevel.__init__ = _patched_init
 
 
+def _center_on_screen(win: tk.Tk) -> None:
+    win.update_idletasks()
+    w = win.winfo_reqwidth()
+    h = win.winfo_reqheight()
+    sw = win.winfo_screenwidth()
+    sh = win.winfo_screenheight()
+    win.geometry(f"+{(sw - w) // 2}+{(sh - h) // 2}")
+
+
 class Application(tk.Tk):
 
     def __init__(self):
         super().__init__()
         self.title("calsec")
-        self.minsize(600, 380)
+        self.minsize(680, 440)
         _base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        self._icon_path = os.path.join(_base, "icon.ico")
-        if os.path.exists(self._icon_path):
-            self.iconbitmap(self._icon_path)
-            _patch_toplevel_icon(self._icon_path)
+
+        if sys.platform.startswith("win"):
+            icon_path = os.path.join(_base, "icon.ico")
+            if os.path.exists(icon_path):
+                self.iconbitmap(icon_path)
+                _patch_toplevel_icon(icon_path)
+
+        else:
+            icon_path = os.path.join(_base, "icon.png")
+            if os.path.exists(icon_path):
+                icon = PhotoImage(file=icon_path)
+                self.iconphoto(True, icon)
         self._frame         = None
         self._logged_in_app = None
 
@@ -138,6 +158,7 @@ class Application(tk.Tk):
         theme.apply(self, settings.get("theme"))
 
         self._start()
+        _center_on_screen(self)
 
     def _start(self):
         if not storage.is_provisioned():

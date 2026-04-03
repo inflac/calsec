@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=calsec
-Comment=Zero trust calendar tool
-Exec=/live/persistence/TailsData_unlocked/calsec
-Icon=/live/persistence/TailsData_unlocked/icon.png
-Type=Application
-Categories=Utility;
-Terminal=false
-StartupNotify=true

@@ -134,7 +134,7 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
     s.configure("TEntry",
         fieldbackground=BG_ALT, foreground=FG,
         insertcolor=FG, bordercolor=BORDER,
-        relief="flat", padding=5,
+        relief="flat", padding=7,
     )
     s.map("TEntry",
         fieldbackground=[("readonly", BG_PANEL), ("disabled", BG_PANEL)],
@@ -145,7 +145,7 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
     s.configure("TCombobox",
         fieldbackground=BG_ALT, background=BG_ALT,
         foreground=FG, arrowcolor=FG,
-        bordercolor=BORDER, relief="flat", padding=4,
+        bordercolor=BORDER, relief="flat", padding=6,
     )
     s.map("TCombobox",
         fieldbackground=[("readonly", BG_ALT), ("disabled", BG_PANEL)],
@@ -178,7 +178,7 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
     s.configure("TButton",
         background=BG_ALT, foreground=FG,
         bordercolor=BORDER, relief="flat",
-        padding=(10, 5), font=F,
+        padding=(14, 7), font=F,
     )
     s.map("TButton",
         background=[("active", ACCENT_H), ("pressed", ACCENT), ("disabled", BG_PANEL)],
@@ -204,7 +204,7 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
         # are handled exclusively through tag_configure in main_window.py.
         foreground=FG,
         fieldbackground=BG_ALT, bordercolor=BORDER,
-        rowheight=26, font=F,
+        rowheight=30, font=F,
     )
     s.configure("Treeview.Heading",
         background=BG_PANEL, foreground=FG_DIM,
