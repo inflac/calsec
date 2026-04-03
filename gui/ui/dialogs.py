@@ -43,9 +43,11 @@ def _center_dialog(dlg: tk.Toplevel, parent: tk.BaseWidget) -> None:
     dlg.update_idletasks()
     sw = dlg.winfo_screenwidth()
     sh = dlg.winfo_screenheight()
-    w  = dlg.winfo_reqwidth()
-    h  = dlg.winfo_reqheight()
-    dlg.geometry(f"+{(sw - w) // 2}+{(sh - h) // 2}")
+    # winfo_reqwidth/height work correctly for withdrawn windows after update_idletasks
+    w = dlg.winfo_reqwidth()
+    h = dlg.winfo_reqheight()
+    # Include explicit WxH so the window manager positions it correctly
+    dlg.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
     dlg.deiconify()
     dlg.wait_visibility()
     dlg.grab_set()
@@ -235,7 +237,7 @@ class ProvisionDialog(tk.Toplevel):
         self.title("Setup — Erstkonfiguration")
         self.resizable(False, False)
 
-        self.result = None  # set to (email, password_bytes, sync_data_or_None) on confirm
+        self.result = None  # set to (email, password_bytes_or_None, sync_data_or_None) on confirm
 
         pad = _PAD
 
@@ -246,37 +248,45 @@ class ProvisionDialog(tk.Toplevel):
         self._email = ttk.Entry(self, width=30)
         self._email.grid(row=1, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="Passwort:").grid(row=2, column=0, sticky="e", **pad)
-        self._pw1 = ttk.Entry(self, show="*", width=30)
-        self._pw1.grid(row=2, column=1, sticky="w", **pad)
+        self._no_pw = tk.BooleanVar(value=False)
+        ttk.Checkbutton(self, text="Ohne Passwort",
+                        variable=self._no_pw,
+                        command=self._toggle_pw).grid(
+            row=2, column=0, columnspan=2, sticky="w", padx=14, pady=(4, 0))
 
-        ttk.Label(self, text="Wiederholen:").grid(row=3, column=0, sticky="e", **pad)
+        self._pw_label1 = ttk.Label(self, text="Passwort:")
+        self._pw_label1.grid(row=3, column=0, sticky="e", **pad)
+        self._pw1 = ttk.Entry(self, show="*", width=30)
+        self._pw1.grid(row=3, column=1, sticky="w", **pad)
+
+        self._pw_label2 = ttk.Label(self, text="Wiederholen:")
+        self._pw_label2.grid(row=4, column=0, sticky="e", **pad)
         self._pw2 = ttk.Entry(self, show="*", width=30)
-        self._pw2.grid(row=3, column=1, sticky="w", **pad)
+        self._pw2.grid(row=4, column=1, sticky="w", **pad)
 
         ttk.Separator(self, orient="horizontal").grid(
-            row=4, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+            row=5, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
 
         ttk.Label(self, text="WebDAV Sync (URL leer lassen zum Überspringen):").grid(
-            row=5, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 2))
+            row=6, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 2))
 
-        ttk.Label(self, text="WebDAV-URL:").grid(row=6, column=0, sticky="e", **pad)
+        ttk.Label(self, text="WebDAV-URL:").grid(row=7, column=0, sticky="e", **pad)
         self._nc_url = ttk.Entry(self, width=36)
-        self._nc_url.grid(row=6, column=1, sticky="w", **pad)
+        self._nc_url.grid(row=7, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="Benutzername:").grid(row=7, column=0, sticky="e", **pad)
+        ttk.Label(self, text="Benutzername:").grid(row=8, column=0, sticky="e", **pad)
         self._nc_user = ttk.Entry(self, width=36)
-        self._nc_user.grid(row=7, column=1, sticky="w", **pad)
+        self._nc_user.grid(row=8, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="App-Passwort:").grid(row=8, column=0, sticky="e", **pad)
+        ttk.Label(self, text="App-Passwort:").grid(row=9, column=0, sticky="e", **pad)
         self._nc_pw = ttk.Entry(self, show="*", width=36)
-        self._nc_pw.grid(row=8, column=1, sticky="w", **pad)
+        self._nc_pw.grid(row=9, column=1, sticky="w", **pad)
 
         ttk.Separator(self, orient="horizontal").grid(
-            row=9, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+            row=10, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
 
         btn_frame = ttk.Frame(self)
-        btn_frame.grid(row=10, column=0, columnspan=2, pady=(0, 10))
+        btn_frame.grid(row=11, column=0, columnspan=2, pady=(0, 10))
         ttk.Button(btn_frame, text="Schlüssel generieren",
                    command=self._confirm).pack(side="left", padx=6)
         ttk.Button(btn_frame, text="Abbrechen",
@@ -286,6 +296,14 @@ class ProvisionDialog(tk.Toplevel):
         self.bind("<Return>", lambda _: self._confirm())
         _center_dialog(self, parent)
 
+    def _toggle_pw(self):
+        state = "disabled" if self._no_pw.get() else "normal"
+        self._pw1.configure(state=state)
+        self._pw2.configure(state=state)
+        dim = "#888888" if self._no_pw.get() else ""
+        self._pw_label1.configure(foreground=dim)
+        self._pw_label2.configure(foreground=dim)
+
     def _confirm(self):
         email = self._email.get().strip()
         if not email or "@" not in email:
@@ -293,15 +311,19 @@ class ProvisionDialog(tk.Toplevel):
                                  parent=self)
             return
 
-        pw1 = self._pw1.get()
-        pw2 = self._pw2.get()
-        if pw1 != pw2:
-            messagebox.showerror("Fehler", "Passwörter stimmen nicht überein.", parent=self)
-            return
-        if len(pw1) < 8:
-            messagebox.showerror("Fehler", "Passwort muss mindestens 8 Zeichen haben.",
-                                 parent=self)
-            return
+        if self._no_pw.get():
+            password = None
+        else:
+            pw1 = self._pw1.get()
+            pw2 = self._pw2.get()
+            if pw1 != pw2:
+                messagebox.showerror("Fehler", "Passwörter stimmen nicht überein.", parent=self)
+                return
+            if len(pw1) < 8:
+                messagebox.showerror("Fehler", "Passwort muss mindestens 8 Zeichen haben.",
+                                     parent=self)
+                return
+            password = pw1.encode()
 
         sync_data = None
         url = self._nc_url.get().strip()
@@ -325,7 +347,7 @@ class ProvisionDialog(tk.Toplevel):
                 "password":   self._nc_pw.get(),
             }
 
-        self.result = (email, pw1.encode(), sync_data)
+        self.result = (email, password, sync_data)
         self.destroy()
 
 

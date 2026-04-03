@@ -125,10 +125,10 @@ def _patch_toplevel_icon(icon_path: str) -> None:
 
 def _center_on_screen(win: tk.Tk) -> None:
     win.update_idletasks()
-    w = win.winfo_reqwidth()
-    h = win.winfo_reqheight()
     sw = win.winfo_screenwidth()
     sh = win.winfo_screenheight()
+    w = win.winfo_width()
+    h = win.winfo_height()
     win.geometry(f"+{(sw - w) // 2}+{(sh - h) // 2}")
 
 
@@ -226,7 +226,7 @@ class Application(tk.Tk):
 
         messagebox.showinfo(
             "Setup abgeschlossen",
-            "Schlüssel generiert. Bitte mit dem Passwort entsperren.",
+            "Schlüssel generiert." + (" Bitte mit dem Passwort entsperren." if password else ""),
             parent=self,
         )
         self._show_login()
@@ -255,6 +255,7 @@ class Application(tk.Tk):
             self._frame.destroy()
         self._frame = frame
         self._frame.pack(fill="both", expand=True)
+        self.after(0, lambda: _center_on_screen(self))
 
 
 def main():

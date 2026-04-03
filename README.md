@@ -18,6 +18,73 @@ While this method does not eliminate all risks, it significantly reduces them by
 
 ## Encryption scheme
 
+CalSec uses a layered encryption model. All cryptographic operations use standard algorithms from the `cryptography` Python library.
+
+### Keys
+
+| Key | Algorithm | Purpose |
+|-----|-----------|---------|
+| User keypair | EC SECP256R1 | Per-user encryption identity |
+| `sym_key_cal` | AES-256 (random) | Encrypts all calendar entries |
+| `kpriv_admin_sign` | EC SECP256R1 | Signs the users block (admin only) |
+| `kpriv_edit_sign` | EC SECP256R1 | Signs entries and sync config (admin + editors) |
+
+### Calendar symmetric key distribution
+
+Each user receives a copy of `sym_key_cal` encrypted to their public key via **ECIES** (Ephemeral ECDH + HKDF-SHA256 + AES-256-GCM). This means:
+- The server never sees `sym_key_cal` in plaintext
+- Revoking a user triggers a key rotation: a new `sym_key_cal` is generated and re-encrypted for all remaining users, and all entries are re-encrypted
+
+### Entry encryption
+
+Each calendar entry is encrypted with a **random per-entry AES-256 key**:
+
+```
+entry_key  ──AES-256-GCM──▶  entry_key_enc   (wrapped with sym_key_cal)
+entry_data ──AES-256-GCM──▶  data_enc        (encrypted with entry_key, entry ID as AAD)
+```
+
+Using the entry ID as Additional Authenticated Data (AAD) prevents an attacker from substituting one encrypted entry for another.
+
+### Integrity — split signatures
+
+`calendar.json` contains two independent ECDSA-SHA256 signatures:
+
+```
+sig_users   = ECDSA(kpriv_admin_sign,  sign_keys || users || sync_config)
+sig_entries = ECDSA(kpriv_edit_sign,   entries)
+```
+
+This separation means editors can sign entry changes without being able to forge user or access-control changes. Only admins hold `kpriv_admin_sign`.
+
+### Sign key distribution
+
+Signing private keys are stored inside `calendar.json` encrypted to each eligible user's public key via ECIES:
+
+- `edit_sign_key_enc` — present for admins and editors
+- `admin_sign_key_enc` — present for admins only
+
+### File structure overview
+
+```
+calendar.json
+├── version
+├── sign_keys          (public signing keys — readable by all)
+├── users
+│   └── <hash>
+│       ├── kpub_enc           (user's EC public key)
+│       ├── sym_key_cal_enc    (ECIES: sym_key_cal → user)
+│       ├── email_enc          (AES-256-GCM with sym_key_cal)
+│       ├── role
+│       ├── edit_sign_key_enc  (ECIES, editors + admins)
+│       └── admin_sign_key_enc (ECIES, admins only)
+├── entries[]
+│   └── { id, entry_key_enc, data_enc }
+├── sync_config        (AES-256-GCM with sym_key_cal, admins only)
+├── sig_users          (ECDSA over sign_keys + users + sync_config)
+└── sig_entries        (ECDSA over entries)
+```
+
 ## Limitations & Risks
 
 ## Installation Steps
@@ -41,7 +108,7 @@ While this method does not eliminate all risks, it significantly reduces them by
 
 ---
 
-### 2. Install CalSec
+### 2. Install / Uninstall CalSec
 
 1. Unzip the file  
 2. Open the extracted folder in your file browser  
@@ -55,9 +122,15 @@ While this method does not eliminate all risks, it significantly reduces them by
     ./install_calsec.sh
     ```
 
+To uninstall CalSec, run the installer with the `--uninstall` flag:
+```bash
+./install_calsec.sh --uninstall
+```
+You will be asked whether to also delete your keys. Keys are **not** deleted by default.
+
 ---
 
-### 3. Key Generation (NEW)
+### 3. Key Generation
 
 After installation, you will be asked:
 `Generate keypair now? [Y/n]`
@@ -110,11 +183,12 @@ CalSec stores its data inside the persistent storage:
   └── pubkeys/            # public keys for sharing
 ```
 
-The desktop entry for CalSec is stored at:
+The desktop entry is stored persistently at:
 ```bash
 /home/amnesia/Persistent/.local/share/applications/
 └── calsec.desktop
 ```
+A symlink is created at `/home/amnesia/.local/share/applications/calsec.desktop` for the current session.
 
 User preferences (e.g. GUI color scheme) are stored at:
 ```bash
