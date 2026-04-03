@@ -83,7 +83,30 @@
         "reveal": "silent"
       }
     },
+    {
+      "label": "Build README (HTML)",
+      "type": "shell",
 
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-Command",
+          "echo Skipping HTML build on Windows"
+        ]
+      },
+
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "pandoc README.md   -o build/README.html   --standalone   --include-in-header=style.css   --lua-filter=admonition.lua   --metadata charset=UTF-8"
+        ]
+      },
+
+      "presentation": {
+        "reveal": "silent"
+      }
+    },
     {
       "label": "Build binary",
       "type": "shell",
@@ -135,13 +158,13 @@
     {
       "label": "Build & Package",
       "type": "shell",
-      "dependsOn": ["Build binary"],
+      "dependsOn": ["Build binary", "Build README (HTML)"],
 
       "windows": {
         "command": "powershell",
         "args": [
           "-Command",
-          "Compress-Archive -Force -Path build/calsec.exe,icon.png,icon.ico,calsec.desktop,install_calsec.sh,README.md -DestinationPath calsec.zip"
+          "Compress-Archive -Force -Path build/calsec.exe,icon.png,icon.ico,install_calsec.sh,README.md -DestinationPath calsec.zip"
         ]
       },
 
@@ -149,7 +172,7 @@
         "command": "bash",
         "args": [
           "-c",
-          "zip -j calsec.zip build/calsec icon.png calsec.desktop install_calsec.sh README.md"
+          "zip -j build/calsec.zip build/calsec icon.png install_calsec.sh build/README.html"
         ]
       },
 

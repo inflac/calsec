@@ -1,0 +1,179 @@
+<style>
+:root {
+  color-scheme: dark;
+
+  --bg: #0f1117;
+  --surface: #161b22;
+  --text: #e6edf3;
+  --muted: #9da7b3;
+  --border: #30363d;
+  --accent: #58a6ff;
+  --accent-visited: #bc8cff;
+}
+
+/* Base */
+html {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+body {
+  margin: 0 auto;
+  max-width: 42em;
+  padding: 3rem 1.5rem;
+  line-height: 1.6;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow-wrap: break-word;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  body {
+    padding: 1rem;
+    font-size: 0.95em;
+  }
+}
+
+/* Typography */
+p {
+  margin: 1em 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 1.8em;
+  line-height: 1.25;
+}
+
+/* Links */
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+a:visited {
+  color: var(--accent-visited);
+}
+
+/* Lists */
+ol, ul {
+  padding-left: 1.5em;
+}
+
+li > p {
+  margin-bottom: 0.5em;
+}
+
+/* Fix Pandoc code blocks inside lists */
+li > div.sourceCode {
+  margin-top: 0.5em;
+  margin-bottom: 1em;
+}
+
+li pre {
+  margin: 0;
+}
+
+/* Blockquotes */
+blockquote {
+  margin: 1.2em 0;
+  padding: 0.8em 1em;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+  background: var(--surface);
+  border-radius: 6px;
+}
+
+/* Code */
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: var(--surface);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.95em;
+}
+
+/* Code blocks */
+pre {
+  background: var(--surface);
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Pandoc syntax highlighting */
+.sourceCode {
+  background: var(--surface);
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  font-size: 0.95em;
+}
+
+th, td {
+  border: 1px solid var(--border);
+  padding: 0.5em 0.75em;
+}
+
+th {
+  background: var(--surface);
+  text-align: left;
+}
+
+/* Horizontal rule */
+hr {
+  border: none;
+  height: 1px;
+  background: var(--border);
+  margin: 2em 0;
+}
+
+/* Images */
+img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+/* Admonitions (your Lua output) */
+.admonition {
+  margin: 1.2em 0;
+  padding: 1em 1.2em;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.admonition-title {
+  font-weight: 600;
+  margin-bottom: 0.5em;
+}
+
+.admonition.warning {
+  border-left: 4px solid #ff7b72;
+}
+
+.admonition.note {
+  border-left: 4px solid #58a6ff;
+}
+
+.admonition.tip {
+  border-left: 4px solid #3fb950;
+}
+
+.admonition.important {
+  border-left: 4px solid #d29922;
+}
+</style>
