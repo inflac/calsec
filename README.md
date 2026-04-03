@@ -1,5 +1,6 @@
 # CalSec
 
+
 A secure calendar tool for tails with hidden service sync
 
 Staying anonymous nowadays becomes more challenging from day to day. One of the most established methods for journalists, activists and people who want to hide in an anonymity set is to use [Tails](https://tails.net). However with tails and the need to undergo surveillance and censorship, you have to face limitations.
@@ -8,9 +9,10 @@ Thus including not to trust most third party services without [E2E](https://en.w
 When dealing with others you might face the need to share a calendar so everyone stays informed about upcoming events and appointments.
 However, using Services without E2E isn't an option. Also trusting companies which claim security and privacy is an advance of trust we might understandably not want to give. So there are two options left:
 The most obvious is to host your own hidden service with a calendar tool. Besides the many advantages this could have, we now have the need to secure our Hardware. Also, this isn't an undoable task and there are a lot of cool concepts for hardening and securing local hardware against eavesdropping or actual physical access, this might be overkill for a simple calendar and leaves risks as well.
-All your contacts communicating with your local hidden service, leads to your home. No matter the data might be enough protected, you could get into the scope of investigations or attacks. The second option which is used by this too, will be explained in the "Concept" section.
+All your contacts communicating with your local hidden service, leads to your home. No matter the data might be enough protected, you could get into the scope of investigations or attacks. The second option which is used by this tool, will be explained in the "Concept" section.
 
 ## Concept
+
 
 For a shared calendar, we need an accessible server to store and distribute the data. Since we do not want to host such a server ourselves, nor rely on the promises of third-party providers, we instead use a synchronization approach similar to what is used in local password managers.
 
@@ -25,6 +27,7 @@ CalSec uses a layered encryption model. All cryptographic operations use standar
 ### Keys
 
 | Key | Algorithm | Purpose |
+| ----- | ----------- | --------- |
 | ----- | ----------- | --------- |
 | User keypair | EC SECP256R1 | Per-user encryption identity |
 | `sym_key_cal` | AES-256 (random) | Encrypts all calendar entries |
@@ -102,9 +105,11 @@ calendar.json
 
 1. Calculate the SHA256 hash of the ZIP:
 
+
     ```bash
     sha256sum calsec.zip
     ```
+
 
 2. Compare the output with the hash from the latest release
 3. If both hashes match, continue.
@@ -119,11 +124,14 @@ calendar.json
 3. Right-click inside the folder and select **“Open in Terminal”**
 4. Make the installer executable:
 
+
     ```bash
     chmod +x install_calsec.sh
     ```
 
+
 5. Start the installer:
+
 
     ```bash
     ./install_calsec.sh
@@ -131,9 +139,11 @@ calendar.json
 
 To uninstall CalSec, run the installer again and choose **"Uninstall"** from the menu:
 
+
 ```bash
 ./install_calsec.sh
 ```
+
 
 You will be asked whether to also delete your keys. Keys are **not** deleted by default.
 
@@ -176,13 +186,16 @@ You can now start CalSec from:
 - the Applications menu
 - or via terminal:
 
+
     ```bash
     /live/persistence/TailsData_unlocked/programs/calsec/calsec
     ```
 
 ## Data Locations
 
+
 CalSec stores its data inside the persistent storage:
+
 
 ```bash
 /live/persistence/TailsData_unlocked/
@@ -197,10 +210,12 @@ CalSec stores its data inside the persistent storage:
 
 The desktop entry is stored persistently via the Dotfiles feature at:
 
+
 ```bash
 /live/persistence/TailsData_unlocked/dotfiles/.local/share/applications/
 └── calsec.desktop
 ```
+
 
 A symlink is created at `/home/amnesia/.local/share/applications/calsec.desktop` for the current session.
 
@@ -208,6 +223,7 @@ A symlink is created at `/home/amnesia/.local/share/applications/calsec.desktop`
 > The **Dotfiles** feature must be enabled in Tails Persistent Storage settings for the application menu entry to survive a reboot.
 
 User preferences (e.g. GUI color scheme) are stored at:
+
 
 ```bash
 /home/amnesia/Persistent/
