@@ -149,7 +149,7 @@ def _center_on_screen(win: tk.Tk) -> None:
 class Application(tk.Tk):
 
     def __init__(self):
-        super().__init__(className="CalSec")
+        super().__init__(className="calsec")
         self.title("calsec")
         self.minsize(680, 440)
         _patch_toplevel_minsize()

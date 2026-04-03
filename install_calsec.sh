@@ -160,7 +160,7 @@ Type=Application
 Categories=Utility;
 Terminal=false
 StartupNotify=true
-StartupWMClass=CalSec
+StartupWMClass=calsec
 EOF
 
 chmod +x "$DESKTOP_PERSIST_DIR/calsec.desktop"

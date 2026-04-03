@@ -90,8 +90,8 @@ calendar.json
 ## Installation Steps
 
 > [!WARNING]
-> For security reasons, you should only install CalSec using the ZIP file from the latest official release on GitHub.  
-> Be especially cautious when downloading ZIP files from unknown or untrusted sources. Third-party files may have been modified and could contain malicious code.  
+> For security reasons, you should only install CalSec using the ZIP file from the latest official release on GitHub.
+> Be especially cautious when downloading ZIP files from unknown or untrusted sources. Third-party files may have been modified and could contain malicious code.
 > Always verify the source before installation to ensure the integrity and safety of your system.
 
 ---
@@ -102,17 +102,17 @@ calendar.json
     ```bash
     sha256sum calsec.zip
     ```
-2. Compare the output with the hash from the latest [release](https://github.com/inflac/calsec/releases/latest)  
-3. If both hashes match, continue.  
+2. Compare the output with the hash from the latest [release](https://github.com/inflac/calsec/releases/latest)
+3. If both hashes match, continue.
    If they do not match, delete your local copy and download a fresh version from the official release page.
 
 ---
 
 ### 2. Install / Uninstall CalSec
 
-1. Unzip the file  
-2. Open the extracted folder in your file browser  
-3. Right-click inside the folder and select **“Open in Terminal”**  
+1. Unzip the file
+2. Open the extracted folder in your file browser
+3. Right-click inside the folder and select **“Open in Terminal”**
 4. Make the installer executable:
     ```bash
     chmod +x install_calsec.sh
@@ -164,7 +164,7 @@ The admin will add you to the calendar.
 
 You can now start CalSec from:
 
-- the Applications menu  
+- the Applications menu
 - or via terminal:
     ```bash
     /live/persistence/TailsData_unlocked/programs/calsec/calsec
