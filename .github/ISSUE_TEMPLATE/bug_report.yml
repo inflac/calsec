@@ -1,0 +1,50 @@
+name: Bug Report
+description: Report a bug in CalSec
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the bug as detailed as possible.
+      placeholder: What happened? What behavior did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can the bug be reproduced?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead?
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: What environment are you using?
+      placeholder: |
+        - Operating System: [e.g. Windows 10, Ubuntu 20.04]
+        - Python Version: [e.g. 3.9.7]
+        - CalSec Version: [e.g. 1.0.0]
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: Add any other relevant information here, such as screenshots, logs, or links.
+    validations:
+      required: false
