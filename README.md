@@ -28,7 +28,6 @@ CalSec uses a layered encryption model. All cryptographic operations use standar
 
 | Key | Algorithm | Purpose |
 | ----- | ----------- | --------- |
-| ----- | ----------- | --------- |
 | User keypair | EC SECP256R1 | Per-user encryption identity |
 | `sym_key_cal` | AES-256 (random) | Encrypts all calendar entries |
 | `kpriv_admin_sign` | EC SECP256R1 | Signs the users block (admin only) |
