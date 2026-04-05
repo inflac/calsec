@@ -121,8 +121,8 @@
           "--noconsole",
           "--strip",
           "--optimize=2",
-          "--icon", "${workspaceFolder}/icon.ico",
-          "--add-data", "${workspaceFolder}/icon.ico:.",
+          "--icon", "${workspaceFolder}/assets/icon.ico",
+          "--add-data", "${workspaceFolder}/assets/icon.ico:.",
           "--collect-all", "cryptography",
           "--distpath", "build",
           "--workpath", "build/work",
@@ -140,7 +140,7 @@
           "--noconsole",
           "--strip",
           "--optimize=2",
-          "--add-data", "${workspaceFolder}/icon.png:.",
+          "--add-data", "${workspaceFolder}/assets/icon.png:.",
           "--collect-all", "cryptography",
           "--distpath", "build",
           "--workpath", "build/work",
@@ -164,7 +164,7 @@
         "command": "powershell",
         "args": [
           "-Command",
-          "Compress-Archive -Force -Path build/calsec.exe,icon.png,icon.ico,install_calsec.sh,README.md -DestinationPath calsec.zip"
+          "Compress-Archive -Force -Path build/calsec.exe,assets/icon.png,assets/icon.ico,assets/install_calsec.sh,README.md -DestinationPath calsec.zip"
         ]
       },
 
@@ -172,7 +172,7 @@
         "command": "bash",
         "args": [
           "-c",
-          "if [ -f build/README.html ]; then zip -j build/calsec.zip build/calsec icon.png install_calsec.sh build/README.html; else zip -j build/calsec.zip build/calsec icon.png install_calsec.sh README.md; fi"
+          "if [ -f build/README.html ]; then zip -j build/calsec.zip build/calsec assets/icon.png assets/install_calsec.sh build/README.html; else zip -j build/calsec.zip build/calsec assets/icon.png assets/install_calsec.sh README.md; fi"
         ]
       },
 
