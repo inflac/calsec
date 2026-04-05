@@ -2,6 +2,7 @@
 *.pem
 calendar.json
 *.zip
+.claude/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

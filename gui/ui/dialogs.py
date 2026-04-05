@@ -3,6 +3,7 @@
 import tkinter as tk
 from tkinter import ttk
 
+import i18n
 import storage
 import theme
 
@@ -12,27 +13,8 @@ _PALETTE = [
     "#795548", "#607d8b", "#8bc34a", "#2ecc70",
 ]
 
-# --- Recurrence constants ---
-
+# Internal weekday codes (stored in calendar data — do NOT translate)
 _WD_CODES = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
-_WD_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
-_WD_LONG  = ["Montag", "Dienstag", "Mittwoch", "Donnerstag",
-              "Freitag", "Samstag", "Sonntag"]
-
-_FREQ_OPTS = [
-    ("Nicht wiederkehrend", "none"),
-    ("Täglich",             "daily"),
-    ("Wöchentlich",         "weekly"),
-    ("Monatlich",           "monthly"),
-    ("Jährlich",            "yearly"),
-]
-_FREQ_UNITS = {
-    "daily": "Tag(e)", "weekly": "Woche(n)",
-    "monthly": "Monat(e)", "yearly": "Jahr(e)",
-}
-
-_POS_OPTS = [("1.", "1"), ("2.", "2"), ("3.", "3"), ("4.", "4"), ("Letzten", "-1")]
-
 
 # Default padding for dialog form rows
 _PAD = {"padx": 14, "pady": 6}
@@ -64,7 +46,7 @@ def show_info(parent: tk.BaseWidget, title: str, message: str) -> None:
     dlg = _make_dialog(parent, title)
     ttk.Label(dlg, text=message, wraplength=360,
               justify="center").pack(padx=24, pady=(20, 12))
-    ttk.Button(dlg, text="OK", command=dlg.destroy).pack(pady=(0, 16))
+    ttk.Button(dlg, text=i18n._("btn_ok"), command=dlg.destroy).pack(pady=(0, 16))
     _center_dialog(dlg, parent)
     parent.winfo_toplevel().wait_window(dlg)
 
@@ -73,7 +55,7 @@ def show_error(parent: tk.BaseWidget, title: str, message: str) -> None:
     dlg = _make_dialog(parent, title)
     ttk.Label(dlg, text=message, wraplength=360,
               justify="center", foreground=theme.RED).pack(padx=24, pady=(20, 12))
-    ttk.Button(dlg, text="OK", command=dlg.destroy).pack(pady=(0, 16))
+    ttk.Button(dlg, text=i18n._("btn_ok"), command=dlg.destroy).pack(pady=(0, 16))
     _center_dialog(dlg, parent)
     parent.winfo_toplevel().wait_window(dlg)
 
@@ -85,9 +67,9 @@ def ask_yes_no(parent: tk.BaseWidget, title: str, message: str) -> bool:
               justify="center").pack(padx=24, pady=(20, 12))
     btn_frame = ttk.Frame(dlg)
     btn_frame.pack(pady=(0, 16))
-    ttk.Button(btn_frame, text="Ja",
+    ttk.Button(btn_frame, text=i18n._("btn_yes"),
                command=lambda: [result.__setitem__(0, True), dlg.destroy()]).pack(side="left", padx=6)
-    ttk.Button(btn_frame, text="Nein",
+    ttk.Button(btn_frame, text=i18n._("btn_no"),
                command=dlg.destroy).pack(side="left", padx=6)
     _center_dialog(dlg, parent)
     parent.winfo_toplevel().wait_window(dlg)
@@ -96,28 +78,28 @@ def ask_yes_no(parent: tk.BaseWidget, title: str, message: str) -> bool:
 
 def _recurrence_summary(r: dict | None) -> str:
     if not r:
-        return "-"
+        return i18n._("rec_none")
     freq = r.get("freq", "none")
     n = r.get("interval", 1)
     if freq == "daily":
-        return "Täglich" if n == 1 else f"Alle {n} Tage"
+        return i18n._("rec_daily") if n == 1 else i18n._("rec_every_n_days").format(n=n)
     if freq == "weekly":
         days = r.get("weekdays", [])
-        base = "Wöchentlich" if n == 1 else f"Alle {n} Wochen"
+        base = i18n._("rec_weekly") if n == 1 else i18n._("rec_every_n_weeks").format(n=n)
         return f"{base} ({', '.join(days)})" if days else base
     if freq == "monthly":
-        base = "Monatlich" if n == 1 else f"Alle {n} Monate"
+        base = i18n._("rec_monthly") if n == 1 else i18n._("rec_every_n_months").format(n=n)
         mode = r.get("month_mode", "monthday")
         if mode == "monthday":
-            return f"{base}, am {r.get('month_day', '?')}."
-        pos_map = dict(_POS_OPTS)
+            return f"{base}, {i18n._('rec_on_day').format(day=r.get('month_day', '?'))}"
+        pos_map = dict(i18n.POS_OPTS)
         pos = pos_map.get(str(r.get("month_pos", "1")), "?")
         wd = r.get("month_weekday", "")
-        wd_long = _WD_LONG[_WD_CODES.index(wd)] if wd in _WD_CODES else wd
+        wd_long = i18n.WD_LONG[_WD_CODES.index(wd)] if wd in _WD_CODES else wd
         return f"{base}, {pos} {wd_long}"
     if freq == "yearly":
-        return "Jährlich" if n == 1 else f"Alle {n} Jahre"
-    return "-"
+        return i18n._("rec_yearly") if n == 1 else i18n._("rec_every_n_years").format(n=n)
+    return i18n._("rec_none")
 
 
 class FetchCalendarDialog(tk.Toplevel):
@@ -132,7 +114,7 @@ class FetchCalendarDialog(tk.Toplevel):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
-        self.title("Kalender herunterladen")
+        self.title(i18n._("fetch_title"))
         self.resizable(False, False)
 
         self.result = False
@@ -143,21 +125,19 @@ class FetchCalendarDialog(tk.Toplevel):
                   font=("Cantarell", 14, "bold")).grid(
             row=0, column=0, columnspan=2, pady=(14, 2))
         ttk.Label(self,
-                  text="Lokaler Schlüssel gefunden, aber noch kein Kalender.\n"
-                       "Nextcloud-Zugangsdaten eingeben, um den Kalender\n"
-                       "einmalig herunterzuladen.",
+                  text=i18n._("fetch_description"),
                   justify="center", foreground=theme.FG_DIM).grid(
             row=1, column=0, columnspan=2, padx=10, pady=(0, 10))
 
-        ttk.Label(self, text="WebDAV-URL:").grid(row=2, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_webdav_url")).grid(row=2, column=0, sticky="e", **pad)
         self._url = ttk.Entry(self, width=42)
         self._url.grid(row=2, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="Benutzername:").grid(row=3, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_username")).grid(row=3, column=0, sticky="e", **pad)
         self._user = ttk.Entry(self, width=42)
         self._user.grid(row=3, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="App-Passwort:").grid(row=4, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_app_password")).grid(row=4, column=0, sticky="e", **pad)
         self._pw = ttk.Entry(self, show="*", width=42)
         self._pw.grid(row=4, column=1, sticky="w", **pad)
 
@@ -172,10 +152,10 @@ class FetchCalendarDialog(tk.Toplevel):
 
         btn_frame = ttk.Frame(self)
         btn_frame.grid(row=7, column=0, columnspan=2, pady=(0, 12))
-        self._dl_btn = ttk.Button(btn_frame, text="Herunterladen",
+        self._dl_btn = ttk.Button(btn_frame, text=i18n._("btn_download"),
                                    command=self._download)
         self._dl_btn.pack(side="left", padx=6)
-        ttk.Button(btn_frame, text="Abbrechen",
+        ttk.Button(btn_frame, text=i18n._("btn_cancel"),
                    command=self.destroy).pack(side="left", padx=6)
 
         self._url.focus_set()
@@ -185,17 +165,15 @@ class FetchCalendarDialog(tk.Toplevel):
     def _download(self):
         url = self._url.get().strip()
         if not url:
-            self._status_var.set("Bitte WebDAV-URL eingeben.")
+            self._status_var.set(i18n._("err_url_required"))
             return
         if not url.startswith(("http://", "https://")):
-            self._status_var.set(
-                f"URL muss mit http:// oder https:// beginnen.\n"
-                f"Meintest du https://{url} ?")
+            self._status_var.set(i18n._("err_url_prefix").format(url=url))
             return
 
         user = self._user.get().strip()
         if not user:
-            self._status_var.set("Benutzername erforderlich.")
+            self._status_var.set(i18n._("err_username_required"))
             return
 
         config = {
@@ -204,7 +182,7 @@ class FetchCalendarDialog(tk.Toplevel):
             "password":   self._pw.get(),
         }
 
-        self._status_var.set("Verbinde…")
+        self._status_var.set(i18n._("status_connecting"))
         self._dl_btn.configure(state="disabled")
         self.update()
 
@@ -220,16 +198,14 @@ class FetchCalendarDialog(tk.Toplevel):
 
             sign_keys = data.get("sign_keys", {})
             if not sign_keys:
-                self._status_var.set(
-                    "Fehler: Datei enthält keine Signierschlüssel (v3 oder älter).")
+                self._status_var.set(i18n._("err_no_sign_keys"))
                 self._dl_btn.configure(state="normal")
                 return
 
             sig_users   = data.get("sig_users")
             sig_entries = data.get("sig_entries")
             if not sig_users or not sig_entries:
-                self._status_var.set(
-                    "Fehler: Signaturen fehlen in der heruntergeladenen Datei.")
+                self._status_var.set(i18n._("err_signatures_missing"))
                 self._dl_btn.configure(state="normal")
                 return
 
@@ -238,14 +214,12 @@ class FetchCalendarDialog(tk.Toplevel):
 
             if not verify_users(sign_keys, data.get("users", {}),
                                  data.get("sync_config"), sig_users, kpub_admin):
-                self._status_var.set(
-                    "Fehler: Benutzersignatur ungültig — Datei manipuliert?")
+                self._status_var.set(i18n._("err_user_sig_invalid"))
                 self._dl_btn.configure(state="normal")
                 return
 
             if not verify_entries(data.get("entries", []), sig_entries, kpub_edit):
-                self._status_var.set(
-                    "Fehler: Eintrags-Signatur ungültig — Datei manipuliert?")
+                self._status_var.set(i18n._("err_entry_sig_invalid"))
                 self._dl_btn.configure(state="normal")
                 return
 
@@ -253,9 +227,7 @@ class FetchCalendarDialog(tk.Toplevel):
             local_hashes = storage.find_user_key_hashes()
             registered = [h for h in local_hashes if h in data.get("users", {})]
             if not registered:
-                self._status_var.set(
-                    "Fehler: Kein lokaler Schlüssel ist in diesem Kalender\n"
-                    "registriert. Bitte den Admin bitten, deinen Key hinzuzufügen.")
+                self._status_var.set(i18n._("err_key_not_registered"))
                 self._dl_btn.configure(state="normal")
                 return
 
@@ -264,78 +236,104 @@ class FetchCalendarDialog(tk.Toplevel):
             self.destroy()
 
         except Exception as exc:
-            self._status_var.set(f"Fehler: {exc}")
+            self._status_var.set(i18n._("err_generic").format(exc=exc))
             self._dl_btn.configure(state="normal")
 
 
 class ProvisionDialog(tk.Toplevel):
-    """Shown on first start. Collects admin email + password + optional Nextcloud config."""
+    """Shown on first start. Collects admin email + password + optional Nextcloud config.
+
+    result = None              → cancelled
+    result = ("__reload__",)  → language changed, caller should reopen
+    result = (email, pw, sync) → confirmed
+    """
 
     def __init__(self, parent):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
-        self.title("Setup — Erstkonfiguration")
+        self.title(i18n._("provision_title"))
         self.resizable(False, False)
 
-        self.result = None  # set to (email, password_bytes_or_None, sync_data_or_None) on confirm
+        self.result = None
 
         pad = _PAD
 
-        ttk.Label(self, text="Admin-Konto einrichten:").grid(
-            row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(12, 2))
+        # ── Language selector ─────────────────────────────────────────────────
+        lang_frame = ttk.Frame(self)
+        lang_frame.grid(row=0, column=0, columnspan=2, sticky="e", padx=10, pady=(10, 0))
+        self._lang_var = tk.StringVar(value=i18n.get())
+        for code, label in i18n.SUPPORTED:
+            ttk.Radiobutton(lang_frame, text=label,
+                            variable=self._lang_var, value=code,
+                            command=self._on_lang_change).pack(side="left", padx=4)
 
-        ttk.Label(self, text="E-Mail:").grid(row=1, column=0, sticky="e", **pad)
+        ttk.Separator(self, orient="horizontal").grid(
+            row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(6, 2))
+
+        # ── Admin account ─────────────────────────────────────────────────────
+        ttk.Label(self, text=i18n._("provision_admin_label")).grid(
+            row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(8, 2))
+
+        ttk.Label(self, text=i18n._("lbl_email")).grid(row=3, column=0, sticky="e", **pad)
         self._email = ttk.Entry(self, width=30)
-        self._email.grid(row=1, column=1, sticky="w", **pad)
+        self._email.grid(row=3, column=1, sticky="w", **pad)
 
         self._no_pw = tk.BooleanVar(value=False)
-        ttk.Checkbutton(self, text="Ohne Passwort",
+        ttk.Checkbutton(self, text=i18n._("lbl_no_password"),
                         variable=self._no_pw,
                         command=self._toggle_pw).grid(
-            row=2, column=0, columnspan=2, sticky="w", padx=14, pady=(4, 0))
+            row=4, column=0, columnspan=2, sticky="w", padx=14, pady=(4, 0))
 
-        self._pw_label1 = ttk.Label(self, text="Passwort:")
-        self._pw_label1.grid(row=3, column=0, sticky="e", **pad)
+        self._pw_label1 = ttk.Label(self, text=i18n._("lbl_password"))
+        self._pw_label1.grid(row=5, column=0, sticky="e", **pad)
         self._pw1 = ttk.Entry(self, show="*", width=30)
-        self._pw1.grid(row=3, column=1, sticky="w", **pad)
+        self._pw1.grid(row=5, column=1, sticky="w", **pad)
 
-        self._pw_label2 = ttk.Label(self, text="Wiederholen:")
-        self._pw_label2.grid(row=4, column=0, sticky="e", **pad)
+        self._pw_label2 = ttk.Label(self, text=i18n._("lbl_confirm_pw"))
+        self._pw_label2.grid(row=6, column=0, sticky="e", **pad)
         self._pw2 = ttk.Entry(self, show="*", width=30)
-        self._pw2.grid(row=4, column=1, sticky="w", **pad)
+        self._pw2.grid(row=6, column=1, sticky="w", **pad)
 
         ttk.Separator(self, orient="horizontal").grid(
-            row=5, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+            row=7, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
 
-        ttk.Label(self, text="WebDAV Sync (URL leer lassen zum Überspringen):").grid(
-            row=6, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 2))
+        ttk.Label(self, text=i18n._("provision_webdav_hint")).grid(
+            row=8, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 2))
 
-        ttk.Label(self, text="WebDAV-URL:").grid(row=7, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_webdav_url")).grid(row=9, column=0, sticky="e", **pad)
         self._nc_url = ttk.Entry(self, width=36)
-        self._nc_url.grid(row=7, column=1, sticky="w", **pad)
+        self._nc_url.grid(row=9, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="Benutzername:").grid(row=8, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_username")).grid(row=10, column=0, sticky="e", **pad)
         self._nc_user = ttk.Entry(self, width=36)
-        self._nc_user.grid(row=8, column=1, sticky="w", **pad)
+        self._nc_user.grid(row=10, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="App-Passwort:").grid(row=9, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_app_password")).grid(row=11, column=0, sticky="e", **pad)
         self._nc_pw = ttk.Entry(self, show="*", width=36)
-        self._nc_pw.grid(row=9, column=1, sticky="w", **pad)
+        self._nc_pw.grid(row=11, column=1, sticky="w", **pad)
 
         ttk.Separator(self, orient="horizontal").grid(
-            row=10, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+            row=12, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
 
         btn_frame = ttk.Frame(self)
-        btn_frame.grid(row=11, column=0, columnspan=2, pady=(0, 10))
-        ttk.Button(btn_frame, text="Schlüssel generieren",
+        btn_frame.grid(row=13, column=0, columnspan=2, pady=(0, 10))
+        ttk.Button(btn_frame, text=i18n._("btn_generate_key"),
                    command=self._confirm).pack(side="left", padx=6)
-        ttk.Button(btn_frame, text="Abbrechen",
+        ttk.Button(btn_frame, text=i18n._("btn_cancel"),
                    command=self.destroy).pack(side="left", padx=6)
 
         self._email.focus_set()
         self.bind("<Return>", lambda _: self._confirm())
         _center_dialog(self, parent)
+
+    def _on_lang_change(self):
+        import settings
+        lang = self._lang_var.get()
+        settings.set("language", lang)
+        i18n.load(lang)
+        self.result = ("__reload__",)
+        self.destroy()
 
     def _toggle_pw(self):
         state = "disabled" if self._no_pw.get() else "normal"
@@ -348,7 +346,7 @@ class ProvisionDialog(tk.Toplevel):
     def _confirm(self):
         email = self._email.get().strip()
         if not email or "@" not in email:
-            show_error(self, "Fehler", "Bitte eine gültige E-Mail-Adresse eingeben.")
+            show_error(self, i18n._("err_title"), i18n._("err_email_invalid"))
             return
 
         if self._no_pw.get():
@@ -357,10 +355,10 @@ class ProvisionDialog(tk.Toplevel):
             pw1 = self._pw1.get()
             pw2 = self._pw2.get()
             if pw1 != pw2:
-                show_error(self, "Fehler", "Passwörter stimmen nicht überein.")
+                show_error(self, i18n._("err_title"), i18n._("err_passwords_mismatch"))
                 return
             if len(pw1) < 8:
-                show_error(self, "Fehler", "Passwort muss mindestens 8 Zeichen haben.")
+                show_error(self, i18n._("err_title"), i18n._("err_password_too_short"))
                 return
             password = pw1.encode()
 
@@ -368,13 +366,12 @@ class ProvisionDialog(tk.Toplevel):
         url = self._nc_url.get().strip()
         if url:
             if not url.startswith(("http://", "https://")):
-                show_error(self, "Ungültige URL",
-                    "URL muss mit http:// oder https:// beginnen.\n\n"
-                    f"Meintest du: https://{url} ?")
+                show_error(self, i18n._("err_url_invalid_title"),
+                    i18n._("err_url_invalid_body").format(url=url))
                 return
             nc_user = self._nc_user.get().strip()
             if not nc_user:
-                show_error(self, "Fehler", "Benutzername erforderlich.")
+                show_error(self, i18n._("err_title"), i18n._("err_username_required"))
                 return
             sync_data = {
                 "webdav_url": url,
@@ -397,7 +394,7 @@ class AddEntryDialog(tk.Toplevel):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
-        self.title("Edit Entry" if entry else "Add Entry")
+        self.title(i18n._("edit_entry_title") if entry else i18n._("add_entry_title"))
         self.resizable(False, False)
 
         self.result = None  # (title, date_str, time_str, comments, color, recurrence)
@@ -406,26 +403,26 @@ class AddEntryDialog(tk.Toplevel):
 
         pad = _PAD
 
-        ttk.Label(self, text="Title:").grid(row=0, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_title")).grid(row=0, column=0, sticky="e", **pad)
         self._title = ttk.Entry(self, width=30)
         self._title.grid(row=0, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="Date (DD.MM.YYYY):").grid(row=1, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_date")).grid(row=1, column=0, sticky="e", **pad)
         self._date = ttk.Entry(self, width=14)
         self._date.grid(row=1, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="Time (HH:MM | all-day | unknown):").grid(row=2, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_time")).grid(row=2, column=0, sticky="e", **pad)
         self._time = ttk.Entry(self, width=14)
         self._time.grid(row=2, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="Comments:").grid(row=3, column=0, sticky="ne", padx=10, pady=4)
+        ttk.Label(self, text=i18n._("lbl_comments")).grid(row=3, column=0, sticky="ne", padx=10, pady=4)
         self._comments = tk.Text(self, width=28, height=5)
         self._comments.grid(row=3, column=1, sticky="w", padx=10, pady=4)
-        ttk.Label(self, text="(one per line)", foreground=theme.FG_DIM).grid(
+        ttk.Label(self, text=i18n._("lbl_one_per_line"), foreground=theme.FG_DIM).grid(
             row=4, column=1, sticky="w", padx=10)
 
         # Color picker — 12 swatches in two rows of 6
-        ttk.Label(self, text="Color:").grid(row=5, column=0, sticky="ne", padx=10, pady=6)
+        ttk.Label(self, text=i18n._("lbl_color")).grid(row=5, column=0, sticky="ne", padx=10, pady=6)
         color_frame = tk.Frame(self)
         color_frame.grid(row=5, column=1, sticky="w", padx=10, pady=4)
         self._swatch_btns: dict[str, tk.Button] = {}
@@ -446,21 +443,21 @@ class AddEntryDialog(tk.Toplevel):
             self._swatch_btns[self._color].config(relief="sunken")
 
         # Recurrence row
-        ttk.Label(self, text="Wiederholung:").grid(row=6, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_recurrence")).grid(row=6, column=0, sticky="e", **pad)
         rec_frame = ttk.Frame(self)
         rec_frame.grid(row=6, column=1, sticky="w", **pad)
         self._rec_lbl = ttk.Label(rec_frame,
                                    text=_recurrence_summary(self._recurrence),
                                    foreground=theme.FG_DIM)
         self._rec_lbl.pack(side="left")
-        ttk.Button(rec_frame, text="Bearbeiten…",
+        ttk.Button(rec_frame, text=i18n._("btn_edit_recurrence"),
                    command=self._open_recurrence).pack(side="left", padx=(10, 0))
 
         btn_frame = ttk.Frame(self)
         btn_frame.grid(row=7, column=0, columnspan=2, pady=10)
-        btn_label = "Save" if entry else "Add"
+        btn_label = i18n._("btn_save") if entry else i18n._("btn_add")
         ttk.Button(btn_frame, text=btn_label, command=self._confirm).pack(side="left", padx=6)
-        ttk.Button(btn_frame, text="Cancel", command=self.destroy).pack(side="left", padx=6)
+        ttk.Button(btn_frame, text=i18n._("btn_cancel"), command=self.destroy).pack(side="left", padx=6)
 
         # Pre-fill fields when editing
         if entry:
@@ -503,14 +500,14 @@ class AddEntryDialog(tk.Toplevel):
 
         title = self._title.get().strip()
         if not title:
-            show_error(self, "Error", "Title cannot be empty.")
+            show_error(self, i18n._("err_title"), i18n._("err_title_empty"))
             return
 
         date_str = self._date.get().strip()
         try:
             datetime.strptime(date_str, "%d.%m.%Y")
         except ValueError:
-            show_error(self, "Error", "Invalid date. Use DD.MM.YYYY.")
+            show_error(self, i18n._("err_title"), i18n._("err_date_invalid"))
             return
 
         time_str = self._time.get().strip().lower()
@@ -518,7 +515,7 @@ class AddEntryDialog(tk.Toplevel):
             try:
                 datetime.strptime(time_str, "%H:%M")
             except ValueError:
-                show_error(self, "Error", "Invalid time. Use HH:MM, all-day, or unknown.")
+                show_error(self, i18n._("err_title"), i18n._("err_time_invalid"))
                 return
 
         raw_comments = self._comments.get("1.0", "end").strip()
@@ -535,7 +532,7 @@ class SyncConfigDialog(tk.Toplevel):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
-        self.title("Sync Settings")
+        self.title(i18n._("sync_title"))
         self.resizable(False, False)
 
         # result: dict with sync data, {} to clear, None if cancelled
@@ -543,18 +540,18 @@ class SyncConfigDialog(tk.Toplevel):
 
         pad = _PAD
 
-        ttk.Label(self, text="WebDAV-URL leer lassen, um Sync zu deaktivieren.").grid(
+        ttk.Label(self, text=i18n._("sync_hint")).grid(
             row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(12, 6))
 
-        ttk.Label(self, text="WebDAV-URL:").grid(row=1, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_webdav_url")).grid(row=1, column=0, sticky="e", **pad)
         self._url = ttk.Entry(self, width=40)
         self._url.grid(row=1, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="Benutzername:").grid(row=2, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_username")).grid(row=2, column=0, sticky="e", **pad)
         self._user = ttk.Entry(self, width=40)
         self._user.grid(row=2, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="App-Passwort:").grid(row=3, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_app_password")).grid(row=3, column=0, sticky="e", **pad)
         self._pw = ttk.Entry(self, show="*", width=40)
         self._pw.grid(row=3, column=1, sticky="w", **pad)
 
@@ -569,8 +566,8 @@ class SyncConfigDialog(tk.Toplevel):
 
         btn_frame = ttk.Frame(self)
         btn_frame.grid(row=5, column=0, columnspan=2, pady=(0, 10))
-        ttk.Button(btn_frame, text="Speichern", command=self._confirm).pack(side="left", padx=6)
-        ttk.Button(btn_frame, text="Abbrechen", command=self.destroy).pack(side="left", padx=6)
+        ttk.Button(btn_frame, text=i18n._("btn_save"), command=self._confirm).pack(side="left", padx=6)
+        ttk.Button(btn_frame, text=i18n._("btn_cancel"), command=self.destroy).pack(side="left", padx=6)
 
         self._url.focus_set()
         self.bind("<Return>", lambda _: self._confirm())
@@ -585,14 +582,13 @@ class SyncConfigDialog(tk.Toplevel):
             return
 
         if not url.startswith(("http://", "https://")):
-            show_error(self, "Ungültige URL",
-                "URL muss mit http:// oder https:// beginnen.\n\n"
-                f"Meintest du: https://{url} ?")
+            show_error(self, i18n._("err_url_invalid_title"),
+                i18n._("err_url_invalid_body").format(url=url))
             return
 
         user = self._user.get().strip()
         if not user:
-            show_error(self, "Fehler", "Benutzername erforderlich.")
+            show_error(self, i18n._("err_title"), i18n._("err_username_required"))
             return
 
         self.result = {
@@ -615,7 +611,7 @@ class RecurrenceDialog(tk.Toplevel):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
-        self.title("Wiederholung")
+        self.title(i18n._("recurrence_title"))
         self.resizable(False, False)
 
         self.result = None
@@ -661,20 +657,20 @@ class RecurrenceDialog(tk.Toplevel):
         # Frequency row
         row0 = ttk.Frame(self)
         row0.pack(fill="x", padx=px, pady=(12, 3))
-        ttk.Label(row0, text="Frequenz:").pack(side="left")
+        ttk.Label(row0, text=i18n._("lbl_frequency")).pack(side="left")
         self._freq_cb = ttk.Combobox(
-            row0, values=[l for l, _ in _FREQ_OPTS], state="readonly", width=20)
+            row0, values=[l for l, _ in i18n.FREQ_OPTS], state="readonly", width=20)
         self._freq_cb.set(
-            next((l for l, v in _FREQ_OPTS if v == self._freq.get()),
-                 _FREQ_OPTS[0][0]))
+            next((l for l, v in i18n.FREQ_OPTS if v == self._freq.get()),
+                 i18n.FREQ_OPTS[0][0]))
         self._freq_cb.pack(side="left", padx=8)
         self._freq_cb.bind("<<ComboboxSelected>>",
                            lambda _: self._freq.set(
-                               _FREQ_OPTS[self._freq_cb.current()][1]))
+                               i18n.FREQ_OPTS[self._freq_cb.current()][1]))
 
         # Interval (shown for all freq except none)
         self._interval_frame = ttk.Frame(self)
-        ttk.Label(self._interval_frame, text="Alle:").pack(side="left")
+        ttk.Label(self._interval_frame, text=i18n._("lbl_every")).pack(side="left")
         ttk.Entry(self._interval_frame, textvariable=self._interval,
                   width=4).pack(side="left", padx=4)
         self._unit_lbl = ttk.Label(self._interval_frame, text="")
@@ -682,8 +678,8 @@ class RecurrenceDialog(tk.Toplevel):
 
         # Weekday checkboxes (weekly only)
         self._weekly_frame = ttk.Frame(self)
-        ttk.Label(self._weekly_frame, text="An:").pack(side="left")
-        for code, short in zip(_WD_CODES, _WD_SHORT):
+        ttk.Label(self._weekly_frame, text=i18n._("lbl_on_weekdays")).pack(side="left")
+        for code, short in zip(_WD_CODES, i18n.WD_SHORT):
             ttk.Checkbutton(self._weekly_frame, text=short,
                             variable=self._wd_vars[code]).pack(side="left", padx=1)
 
@@ -691,64 +687,64 @@ class RecurrenceDialog(tk.Toplevel):
         self._monthly_frame = ttk.Frame(self)
         r1 = ttk.Frame(self._monthly_frame)
         r1.pack(fill="x", pady=1)
-        ttk.Radiobutton(r1, text="Am Tag", variable=self._month_mode,
+        ttk.Radiobutton(r1, text=i18n._("lbl_on_day"), variable=self._month_mode,
                          value="monthday").pack(side="left")
         ttk.Entry(r1, textvariable=self._month_day, width=4).pack(side="left", padx=4)
-        ttk.Label(r1, text="des Monats").pack(side="left")
+        ttk.Label(r1, text=i18n._("lbl_of_month")).pack(side="left")
 
         r2 = ttk.Frame(self._monthly_frame)
         r2.pack(fill="x", pady=1)
-        ttk.Radiobutton(r2, text="Am", variable=self._month_mode,
+        ttk.Radiobutton(r2, text=i18n._("lbl_on_the"), variable=self._month_mode,
                          value="weekday").pack(side="left")
-        pos_vals = [v for _, v in _POS_OPTS]
-        self._pos_cb = ttk.Combobox(r2, values=[l for l, _ in _POS_OPTS],
+        pos_vals = [v for _, v in i18n.POS_OPTS]
+        self._pos_cb = ttk.Combobox(r2, values=[l for l, _ in i18n.POS_OPTS],
                                      state="readonly", width=8)
         self._pos_cb.set(
-            next((l for l, v in _POS_OPTS if v == self._month_pos.get()),
-                 _POS_OPTS[0][0]))
+            next((l for l, v in i18n.POS_OPTS if v == self._month_pos.get()),
+                 i18n.POS_OPTS[0][0]))
         self._pos_cb.pack(side="left", padx=4)
         self._pos_cb.bind("<<ComboboxSelected>>",
                            lambda _: self._month_pos.set(
                                pos_vals[self._pos_cb.current()]))
-        self._wd_cb = ttk.Combobox(r2, values=_WD_LONG, state="readonly", width=12)
+        self._wd_cb = ttk.Combobox(r2, values=i18n.WD_LONG, state="readonly", width=12)
         try:
-            self._wd_cb.set(_WD_LONG[_WD_CODES.index(self._month_wd.get())])
+            self._wd_cb.set(i18n.WD_LONG[_WD_CODES.index(self._month_wd.get())])
         except ValueError:
-            self._wd_cb.set(_WD_LONG[0])
+            self._wd_cb.set(i18n.WD_LONG[0])
         self._wd_cb.pack(side="left", padx=4)
         self._wd_cb.bind("<<ComboboxSelected>>",
                           lambda _: self._month_wd.set(
                               _WD_CODES[self._wd_cb.current()]))
-        ttk.Label(r2, text="des Monats").pack(side="left")
+        ttk.Label(r2, text=i18n._("lbl_of_month")).pack(side="left")
 
         # Separator — used as anchor for pack(before=...) ordering
         self._sep = ttk.Separator(self, orient="horizontal")
         self._sep.pack(fill="x", padx=px, pady=8)
 
         # End section
-        end = ttk.LabelFrame(self, text="Ende")
+        end = ttk.LabelFrame(self, text=i18n._("end_label"))
         end.pack(fill="x", padx=px, pady=(0, 6))
-        ttk.Radiobutton(end, text="Nie",
+        ttk.Radiobutton(end, text=i18n._("end_never"),
                          variable=self._end_mode, value="never").grid(
             row=0, column=0, sticky="w", padx=8, pady=2)
-        ttk.Radiobutton(end, text="Am:",
+        ttk.Radiobutton(end, text=i18n._("end_on"),
                          variable=self._end_mode, value="until").grid(
             row=1, column=0, sticky="w", padx=8, pady=2)
         ttk.Entry(end, textvariable=self._until, width=12).grid(
             row=1, column=1, sticky="w", padx=4)
-        ttk.Label(end, text="DD.MM.YYYY").grid(row=1, column=2, sticky="w")
-        ttk.Radiobutton(end, text="Nach:",
+        ttk.Label(end, text=i18n._("end_date_format")).grid(row=1, column=2, sticky="w")
+        ttk.Radiobutton(end, text=i18n._("end_after"),
                          variable=self._end_mode, value="count").grid(
             row=2, column=0, sticky="w", padx=8, pady=2)
         ttk.Entry(end, textvariable=self._count, width=6).grid(
             row=2, column=1, sticky="w", padx=4)
-        ttk.Label(end, text="Wiederholungen").grid(row=2, column=2, sticky="w")
+        ttk.Label(end, text=i18n._("end_repetitions")).grid(row=2, column=2, sticky="w")
 
         # Buttons
         btns = ttk.Frame(self)
         btns.pack(pady=(0, 10))
-        ttk.Button(btns, text="OK", command=self._confirm).pack(side="left", padx=6)
-        ttk.Button(btns, text="Abbrechen", command=self.destroy).pack(side="left", padx=6)
+        ttk.Button(btns, text=i18n._("btn_ok"), command=self._confirm).pack(side="left", padx=6)
+        ttk.Button(btns, text=i18n._("btn_cancel"), command=self.destroy).pack(side="left", padx=6)
 
     def _update_ui(self):
         freq = self._freq.get()
@@ -756,7 +752,7 @@ class RecurrenceDialog(tk.Toplevel):
             f.pack_forget()
         if freq == "none":
             return
-        self._unit_lbl.config(text=_FREQ_UNITS.get(freq, ""))
+        self._unit_lbl.config(text=i18n.FREQ_UNITS.get(freq, ""))
         self._interval_frame.pack(before=self._sep, fill="x", padx=10, pady=3)
         if freq == "weekly":
             self._weekly_frame.pack(before=self._sep, fill="x", padx=10, pady=3)
@@ -775,7 +771,7 @@ class RecurrenceDialog(tk.Toplevel):
             interval = int(self._interval.get())
             assert interval >= 1
         except (ValueError, AssertionError):
-            show_error(self, "Fehler", "Intervall muss ≥ 1 sein.")
+            show_error(self, i18n._("err_title"), i18n._("err_interval_invalid"))
             return
 
         rule = {"freq": freq, "interval": interval}
@@ -783,7 +779,7 @@ class RecurrenceDialog(tk.Toplevel):
         if freq == "weekly":
             days = [c for c in _WD_CODES if self._wd_vars[c].get()]
             if not days:
-                show_error(self, "Fehler", "Bitte mindestens einen Wochentag auswählen.")
+                show_error(self, i18n._("err_title"), i18n._("err_no_weekday"))
                 return
             rule["weekdays"] = days
 
@@ -795,11 +791,11 @@ class RecurrenceDialog(tk.Toplevel):
                     day = int(self._month_day.get())
                     assert 1 <= day <= 31
                 except (ValueError, AssertionError):
-                    show_error(self, "Fehler", "Tag muss zwischen 1 und 31 liegen.")
+                    show_error(self, i18n._("err_title"), i18n._("err_day_invalid"))
                     return
                 rule["month_day"] = day
             else:
-                rule["month_pos"]     = [v for _, v in _POS_OPTS][self._pos_cb.current()]
+                rule["month_pos"]     = [v for _, v in i18n.POS_OPTS][self._pos_cb.current()]
                 rule["month_weekday"] = _WD_CODES[self._wd_cb.current()]
 
         end_mode = self._end_mode.get()
@@ -809,7 +805,7 @@ class RecurrenceDialog(tk.Toplevel):
             try:
                 datetime.strptime(until, "%d.%m.%Y")
             except ValueError:
-                show_error(self, "Fehler", "Ungültiges Enddatum. Format: DD.MM.YYYY")
+                show_error(self, i18n._("err_title"), i18n._("err_end_date_invalid"))
                 return
             rule["until"] = until
         elif end_mode == "count":
@@ -817,7 +813,7 @@ class RecurrenceDialog(tk.Toplevel):
                 count = int(self._count.get())
                 assert count >= 1
             except (ValueError, AssertionError):
-                show_error(self, "Fehler", "Anzahl muss ≥ 1 sein.")
+                show_error(self, i18n._("err_title"), i18n._("err_count_invalid"))
                 return
             rule["count"] = count
 
@@ -832,16 +828,16 @@ class ViewEntryDialog(tk.Toplevel):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
-        self.title("View Entry")
+        self.title(i18n._("view_entry_title"))
         self.resizable(False, False)
 
         pad = {"padx": 12, "pady": 3}
 
         fields = [
-            ("ID", entry.get("id", "")),
-            ("Title", entry.get("title", "")),
-            ("Date", entry.get("date", "")),
-            ("Time", entry.get("time", "")),
+            (i18n._("lbl_id"),                entry.get("id", "")),
+            (i18n._("lbl_entry_title_field"),  entry.get("title", "")),
+            (i18n._("lbl_date_plain"),         entry.get("date", "")),
+            (i18n._("lbl_time_plain"),         entry.get("time", "")),
         ]
         self._vars = []  # keep references to prevent garbage collection
         for row, (label, value) in enumerate(fields):
@@ -853,7 +849,7 @@ class ViewEntryDialog(tk.Toplevel):
             e.grid(row=row, column=1, sticky="w", **pad)
 
         comments = entry.get("comments", [])
-        ttk.Label(self, text="Comments:", font=("", 9, "bold")).grid(
+        ttk.Label(self, text=i18n._("lbl_comments_plain"), font=("", 9, "bold")).grid(
             row=len(fields), column=0, sticky="ne", **pad)
         if comments:
             text = tk.Text(self, width=38, height=min(len(comments) + 1, 8),
@@ -865,10 +861,10 @@ class ViewEntryDialog(tk.Toplevel):
             text.bind("<Key>", lambda e: "break" if e.char else None)
             text.grid(row=len(fields), column=1, sticky="w", padx=12, pady=3)
         else:
-            ttk.Label(self, text="none", foreground=theme.FG_DIM).grid(
+            ttk.Label(self, text=i18n._("lbl_none"), foreground=theme.FG_DIM).grid(
                 row=len(fields), column=1, sticky="w", **pad)
 
-        ttk.Button(self, text="Close", command=self.destroy).grid(
+        ttk.Button(self, text=i18n._("btn_close"), command=self.destroy).grid(
             row=len(fields) + 1, column=0, columnspan=2, pady=12)
         _center_dialog(self, parent)
 
@@ -882,7 +878,7 @@ class AddUserDialog(tk.Toplevel):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
-        self.title("Benutzer hinzufügen")
+        self.title(i18n._("add_user_title"))
         self.resizable(False, False)
 
         # result: (email, kpub_or_None, password_or_None)
@@ -892,7 +888,7 @@ class AddUserDialog(tk.Toplevel):
 
         pad = _PAD
 
-        ttk.Label(self, text="E-Mail:").grid(row=0, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_email")).grid(row=0, column=0, sticky="e", **pad)
         self._email = ttk.Entry(self, width=32)
         self._email.grid(row=0, column=1, columnspan=2, sticky="w", **pad)
 
@@ -900,22 +896,22 @@ class AddUserDialog(tk.Toplevel):
             row=1, column=0, columnspan=3, sticky="ew", padx=10, pady=6)
 
         self._mode = tk.StringVar(value="generate")
-        ttk.Radiobutton(self, text="Schlüsselpaar generieren",
+        ttk.Radiobutton(self, text=i18n._("lbl_generate_keypair"),
                         variable=self._mode, value="generate").grid(
             row=2, column=0, columnspan=3, sticky="w", padx=10)
 
         self._no_pw = tk.BooleanVar(value=False)
-        ttk.Checkbutton(self, text="Ohne Passwort",
+        ttk.Checkbutton(self, text=i18n._("lbl_no_password"),
                         variable=self._no_pw,
                         command=self._toggle_pw).grid(
             row=3, column=0, columnspan=3, sticky="w", padx=28)
 
-        self._pw_label1 = ttk.Label(self, text="Passwort:")
+        self._pw_label1 = ttk.Label(self, text=i18n._("lbl_password"))
         self._pw_label1.grid(row=4, column=0, sticky="e", **pad)
         self._pw1 = ttk.Entry(self, show="*", width=24)
         self._pw1.grid(row=4, column=1, columnspan=2, sticky="w", **pad)
 
-        self._pw_label2 = ttk.Label(self, text="Wiederholen:")
+        self._pw_label2 = ttk.Label(self, text=i18n._("lbl_confirm_pw"))
         self._pw_label2.grid(row=5, column=0, sticky="e", **pad)
         self._pw2 = ttk.Entry(self, show="*", width=24)
         self._pw2.grid(row=5, column=1, columnspan=2, sticky="w", **pad)
@@ -923,7 +919,7 @@ class AddUserDialog(tk.Toplevel):
         ttk.Separator(self, orient="horizontal").grid(
             row=6, column=0, columnspan=3, sticky="ew", padx=10, pady=6)
 
-        ttk.Radiobutton(self, text="Eigenen Public Key angeben (PEM):",
+        ttk.Radiobutton(self, text=i18n._("lbl_external_key"),
                         variable=self._mode, value="external").grid(
             row=7, column=0, columnspan=3, sticky="w", padx=10)
 
@@ -934,7 +930,7 @@ class AddUserDialog(tk.Toplevel):
         ttk.Separator(self, orient="horizontal").grid(
             row=9, column=0, columnspan=3, sticky="ew", padx=10, pady=6)
 
-        ttk.Label(self, text="Rolle:").grid(row=10, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_role")).grid(row=10, column=0, sticky="e", **pad)
         self._role = tk.StringVar(value="viewer")
         role_frame = ttk.Frame(self)
         role_frame.grid(row=10, column=1, columnspan=2, sticky="w", **pad)
@@ -947,9 +943,9 @@ class AddUserDialog(tk.Toplevel):
 
         btn_frame = ttk.Frame(self)
         btn_frame.grid(row=12, column=0, columnspan=3, pady=(0, 10))
-        ttk.Button(btn_frame, text="Hinzufügen",
+        ttk.Button(btn_frame, text=i18n._("btn_add_user"),
                    command=self._confirm).pack(side="left", padx=6)
-        ttk.Button(btn_frame, text="Abbrechen",
+        ttk.Button(btn_frame, text=i18n._("btn_cancel"),
                    command=self.destroy).pack(side="left", padx=6)
 
         self._email.focus_set()
@@ -967,7 +963,7 @@ class AddUserDialog(tk.Toplevel):
 
         email = self._email.get().strip()
         if not email or "@" not in email:
-            show_error(self, "Fehler", "Bitte eine gültige E-Mail-Adresse eingeben.")
+            show_error(self, i18n._("err_title"), i18n._("err_email_invalid"))
             return
 
         mode = self._mode.get()
@@ -979,21 +975,21 @@ class AddUserDialog(tk.Toplevel):
                 pw1 = self._pw1.get()
                 pw2 = self._pw2.get()
                 if pw1 != pw2:
-                    show_error(self, "Fehler", "Passwörter stimmen nicht überein.")
+                    show_error(self, i18n._("err_title"), i18n._("err_passwords_mismatch"))
                     return
                 if len(pw1) < 8:
-                    show_error(self, "Fehler", "Passwort muss mindestens 8 Zeichen haben.")
+                    show_error(self, i18n._("err_title"), i18n._("err_password_too_short"))
                     return
                 self.result = (email, None, pw1.encode(), self._role.get())
         else:
             pem_text = self._kpub_text.get("1.0", "end").strip().encode()
             if not pem_text:
-                show_error(self, "Fehler", "Bitte einen Public Key (PEM) eingeben.")
+                show_error(self, i18n._("err_title"), i18n._("err_pubkey_empty"))
                 return
             try:
                 kpub = load_pem_public_key(pem_text)
             except Exception:
-                show_error(self, "Fehler", "Ungültiger Public Key. Bitte PEM-Format verwenden.")
+                show_error(self, i18n._("err_title"), i18n._("err_pubkey_invalid"))
                 return
             self.result = (email, kpub, None, self._role.get())
 
@@ -1007,13 +1003,13 @@ class UserManagementDialog(tk.Toplevel):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
-        self.title("Benutzerverwaltung")
+        self.title(i18n._("user_mgmt_title"))
         self.resizable(True, True)
         self.minsize(600, 340)
         self.geometry("660x420")
         self._app = app
 
-        ttk.Button(self, text="+ Benutzer hinzufügen",
+        ttk.Button(self, text=i18n._("btn_add_user_toolbar"),
                    command=self._add_user).pack(
             anchor="w", padx=10, pady=(10, 4))
 
@@ -1024,8 +1020,8 @@ class UserManagementDialog(tk.Toplevel):
         cols = ("email", "role")
         self._tree = ttk.Treeview(frame, columns=cols, show="headings",
                                   selectmode="browse", height=8)
-        self._tree.heading("email", text="E-Mail")
-        self._tree.heading("role",  text="Rolle")
+        self._tree.heading("email", text=i18n._("col_email"))
+        self._tree.heading("role",  text=i18n._("col_role"))
         self._tree.column("email", width=440)
         self._tree.column("role",  width=120, anchor="center")
 
@@ -1034,9 +1030,9 @@ class UserManagementDialog(tk.Toplevel):
         self._tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
 
-        ttk.Button(self, text="Entfernen",
+        ttk.Button(self, text=i18n._("btn_remove"),
                    command=self._remove_selected).pack(pady=(4, 0))
-        ttk.Button(self, text="Schließen",
+        ttk.Button(self, text=i18n._("btn_close"),
                    command=self.destroy).pack(pady=(4, 10))
 
         self._users: dict[str, dict] = {}  # iid → user dict
@@ -1073,9 +1069,9 @@ class UserManagementDialog(tk.Toplevel):
             h = storage.email_to_hash(email)
             save_path = fd.asksaveasfilename(
                 parent=self,
-                title=f"Privaten Schlüssel für {email} speichern",
+                title=i18n._("save_key_title").format(email=email),
                 defaultextension=".pem",
-                filetypes=[("PEM key", "*.pem")],
+                filetypes=[(i18n._("file_type_pem"), "*.pem")],
                 initialfile=f"{h}.pem",
             )
             if not save_path:
@@ -1085,37 +1081,70 @@ class UserManagementDialog(tk.Toplevel):
             kpriv_bytes = self._app.add_user(email, kpub, password, role=role,
                                              save_locally=save_path is None)
         except RuntimeError as e:
-            show_error(self, "Fehler", str(e))
+            show_error(self, i18n._("err_title"), str(e))
             return
 
         if kpriv_bytes and save_path:
             try:
                 with open(save_path, "wb") as f:
                     f.write(kpriv_bytes)
-                show_info(self, "Gespeichert",
-                    f"Schlüssel gespeichert:\n{save_path}\n\n"
-                    "Diesen sicher an den Benutzer übertragen.")
+                show_info(self, i18n._("key_saved_title"),
+                    i18n._("key_saved_body").format(path=save_path))
             except Exception as exc:
-                show_error(self, "Fehler", f"Speichern fehlgeschlagen: {exc}")
+                show_error(self, i18n._("err_title"),
+                    i18n._("err_save_failed").format(exc=exc))
         self._refresh()
 
     def _remove_selected(self):
         sel = self._tree.selection()
         if not sel:
-            show_info(self, "Hinweis", "Zuerst einen Benutzer auswählen.")
+            show_info(self, i18n._("user_mgmt_title"), i18n._("hint_select_user"))
             return
         u = self._users.get(sel[0])
         if u is None:
             return
         label = u["email"] or u["hash"][:16]
-        if not ask_yes_no(self, "Benutzer entfernen",
-            f"Benutzer '{label}' entfernen?\n\n"
-            "Der Kalender-Schlüssel wird dabei rotiert "
-            "(alle Einträge werden neu verschlüsselt)."):
+        if not ask_yes_no(self, i18n._("confirm_remove_title"),
+            i18n._("confirm_remove_body").format(label=label)):
             return
         try:
             self._app.remove_user(u["hash"])
         except RuntimeError as e:
-            show_error(self, "Fehler", str(e))
+            show_error(self, i18n._("err_title"), str(e))
             return
         self._refresh()
+
+
+class LanguageDialog(tk.Toplevel):
+    """Let the user pick a display language. Change takes effect on next start."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.withdraw()
+        self.transient(parent)
+        self.title(i18n._("lang_dialog_title"))
+        self.resizable(False, False)
+
+        self._lang_var = tk.StringVar(value=i18n.get())
+
+        ttk.Label(self, text=i18n._("lang_dialog_hint"),
+                  foreground=theme.FG_DIM).pack(padx=20, pady=(16, 8))
+
+        for code, label in i18n.SUPPORTED:
+            ttk.Radiobutton(self, text=label,
+                            variable=self._lang_var, value=code).pack(
+                anchor="w", padx=28, pady=2)
+
+        btn_frame = ttk.Frame(self)
+        btn_frame.pack(pady=(12, 14))
+        ttk.Button(btn_frame, text=i18n._("btn_ok"),
+                   command=self._confirm).pack(side="left", padx=6)
+        ttk.Button(btn_frame, text=i18n._("btn_cancel"),
+                   command=self.destroy).pack(side="left", padx=6)
+
+        _center_dialog(self, parent)
+
+    def _confirm(self):
+        import settings
+        settings.set("language", self._lang_var.get())
+        self.destroy()

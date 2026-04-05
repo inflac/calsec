@@ -8,12 +8,12 @@ from tkinter import ttk, PhotoImage
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import settings
+import i18n
 import theme
 import storage
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from crypto import ecies_decrypt
 from app import CalendarApp
-from ui.main_window import MainWindow
 
 
 class LoginFrame(ttk.Frame):
@@ -26,7 +26,7 @@ class LoginFrame(ttk.Frame):
 
         ttk.Label(self, text="calsec",
                   font=("Cantarell", 18, "bold")).pack(pady=(30, 6))
-        ttk.Label(self, text="Encrypted Calendar",
+        ttk.Label(self, text=i18n._("login_subtitle"),
                   foreground=theme.FG_DIM).pack()
         ttk.Label(self, text=f"Key: {user_hash}",
                   foreground=theme.FG_DIM).pack(pady=(4, 0))
@@ -34,7 +34,7 @@ class LoginFrame(ttk.Frame):
         form = ttk.Frame(self)
         form.pack(pady=20)
 
-        ttk.Label(form, text="Password:").grid(
+        ttk.Label(form, text=i18n._("login_password")).grid(
             row=0, column=0, sticky="e", padx=8, pady=4)
         self._pw_entry = ttk.Entry(form, show="*", width=24)
         self._pw_entry.grid(row=0, column=1, sticky="w", padx=8, pady=4)
@@ -43,7 +43,7 @@ class LoginFrame(ttk.Frame):
         ttk.Label(self, textvariable=self._error_var,
                   foreground=theme.RED).pack()
 
-        ttk.Button(self, text="Unlock", command=self._submit).pack(pady=4)
+        ttk.Button(self, text=i18n._("btn_unlock"), command=self._submit).pack(pady=4)
 
         self._pw_entry.focus_set()
         self._pw_entry.bind("<Return>", lambda _: self._submit())
@@ -55,7 +55,7 @@ class LoginFrame(ttk.Frame):
         try:
             kpriv_user = storage.load_user_private_key(self._user_hash, pw)
         except ValueError:
-            self._error_var.set("Wrong password.")
+            self._error_var.set(i18n._("err_wrong_password"))
             self._pw_entry.delete(0, "end")
             return
         except FileNotFoundError as e:
@@ -68,7 +68,7 @@ class LoginFrame(ttk.Frame):
             user_entry  = raw["users"][self._user_hash]
             sym_key_cal = ecies_decrypt(kpriv_user, user_entry["sym_key_cal_enc"])
         except Exception:
-            self._error_var.set("Schlüsselableitung fehlgeschlagen.")
+            self._error_var.set(i18n._("err_key_derivation"))
             return
 
         # 3. Decrypt sign keys from calendar.json
@@ -83,7 +83,7 @@ class LoginFrame(ttk.Frame):
                 pem = ecies_decrypt(kpriv_user, user_entry["admin_sign_key_enc"])
                 kpriv_admin_sign = load_pem_private_key(pem, password=None)
             except Exception:
-                self._error_var.set("Admin-Signing-Key konnte nicht entschlüsselt werden.")
+                self._error_var.set(i18n._("err_admin_key_decrypt"))
                 return
 
         if role in ("admin", "editor") and "edit_sign_key_enc" in user_entry:
@@ -91,7 +91,7 @@ class LoginFrame(ttk.Frame):
                 pem = ecies_decrypt(kpriv_user, user_entry["edit_sign_key_enc"])
                 kpriv_edit_sign = load_pem_private_key(pem, password=None)
             except Exception:
-                self._error_var.set("Edit-Signing-Key konnte nicht entschlüsselt werden.")
+                self._error_var.set(i18n._("err_edit_key_decrypt"))
                 return
 
         # 4. Build CalendarApp
@@ -170,6 +170,7 @@ class Application(tk.Tk):
         self._logged_in_app = None
 
         settings.load()
+        i18n.load(settings.get("language"))
         theme.apply(self, settings.get("theme"))
 
         self._start()
@@ -205,10 +206,8 @@ class Application(tk.Tk):
 
         if not matching:
             from ui.dialogs import show_error
-            show_error(self, "Kein Benutzer",
-                f"Kein passender Schlüssel in\n'{storage.KEYS_DIR}'\ngefunden.\n\n"
-                "Bitte den eigenen Schlüssel (sha256(localpart).pem) "
-                "dort ablegen.")
+            show_error(self, i18n._("err_no_user_title"),
+                i18n._("err_no_user_body").format(keys_dir=storage.KEYS_DIR))
             self.destroy()
             return
 
@@ -222,29 +221,34 @@ class Application(tk.Tk):
 
     def _show_provision(self):
         from ui.dialogs import ProvisionDialog, show_info, show_error
-        dlg = ProvisionDialog(self)
-        self.wait_window(dlg)
+        while True:
+            dlg = ProvisionDialog(self)
+            self.wait_window(dlg)
 
-        if dlg.result is None:
-            self.destroy()
-            return
+            if dlg.result is None:
+                self.destroy()
+                return
+
+            # Language-change reload: reopen the dialog with the new language
+            if dlg.result == ("__reload__",):
+                continue
+
+            break
 
         email, password, sync_data = dlg.result
         try:
             storage.provision(email, password, sync_data)
         except RuntimeError as e:
-            show_error(self, "Error", str(e))
+            show_error(self, i18n._("err_title"), str(e))
             self.destroy()
             return
 
-        show_info(
-            self,
-            "Setup abgeschlossen",
-            "Schlüssel generiert." + (" Bitte mit dem Passwort entsperren." if password else ""),
-        )
+        body = i18n._("setup_done_body_pw") if password else i18n._("setup_done_body")
+        show_info(self, i18n._("setup_done_title"), body)
         self._show_login()
 
     def _show_main(self, app: CalendarApp):
+        from ui.main_window import MainWindow
         self._logged_in_app = app
         main_win = MainWindow(self, app, on_toggle_theme=self._toggle_theme)
         self._switch_to(main_win)
@@ -257,6 +261,7 @@ class Application(tk.Tk):
         settings.set("theme", new_mode)
         theme.apply(self, new_mode)
         if self._logged_in_app is not None:
+            from ui.main_window import MainWindow
             self._switch_to(
                 MainWindow(self, self._logged_in_app,
                            on_toggle_theme=self._toggle_theme))

@@ -8,7 +8,7 @@ import os
 _DIR  = os.path.join(os.path.expanduser("~"), ".calsec")
 _FILE = os.path.join(_DIR, "settings.json")
 
-_DEFAULTS: dict = {"theme": "dark"}
+_DEFAULTS: dict = {"theme": "dark", "language": "de"}
 _current:  dict = dict(_DEFAULTS)
 
 

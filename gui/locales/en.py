@@ -1,0 +1,203 @@
+MONTHS = [
+    "", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
+
+WD_SHORT = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+WD_LONG  = ["Monday", "Tuesday", "Wednesday", "Thursday",
+             "Friday", "Saturday", "Sunday"]
+
+FREQ_OPTS = [
+    ("Not recurring", "none"),
+    ("Daily",         "daily"),
+    ("Weekly",        "weekly"),
+    ("Monthly",       "monthly"),
+    ("Yearly",        "yearly"),
+]
+FREQ_UNITS = {
+    "daily":   "day(s)",
+    "weekly":  "week(s)",
+    "monthly": "month(s)",
+    "yearly":  "year(s)",
+}
+POS_OPTS = [("1st", "1"), ("2nd", "2"), ("3rd", "3"), ("4th", "4"), ("Last", "-1")]
+
+STRINGS = {
+    # ── Generic ───────────────────────────────────────────────────────────────
+    "btn_ok":                   "OK",
+    "btn_yes":                  "Yes",
+    "btn_no":                   "No",
+    "btn_cancel":               "Cancel",
+    "btn_save":                 "Save",
+    "btn_close":                "Close",
+    "lbl_email":                "Email:",
+    "lbl_webdav_url":           "WebDAV URL:",
+    "lbl_username":             "Username:",
+    "lbl_app_password":         "App Password:",
+    "lbl_password":             "Password:",
+    "lbl_confirm_pw":           "Repeat:",
+    "lbl_no_password":          "No password",
+    "err_title":                "Error",
+    "err_email_invalid":        "Please enter a valid email address.",
+    "err_passwords_mismatch":   "Passwords do not match.",
+    "err_password_too_short":   "Password must be at least 8 characters.",
+    "err_username_required":    "Username is required.",
+    "err_url_invalid_title":    "Invalid URL",
+    "err_url_invalid_body":     "URL must start with http:// or https://.\n\nDid you mean: https://{url} ?",
+
+    # ── LoginFrame ────────────────────────────────────────────────────────────
+    "login_subtitle":           "Encrypted Calendar",
+    "login_password":           "Password:",
+    "btn_unlock":               "Unlock",
+    "err_wrong_password":       "Wrong password.",
+    "err_key_derivation":       "Key derivation failed.",
+    "err_admin_key_decrypt":    "Admin signing key could not be decrypted.",
+    "err_edit_key_decrypt":     "Edit signing key could not be decrypted.",
+    "err_no_user_title":        "No User",
+    "err_no_user_body":         "No matching key found in\n'{keys_dir}'.\n\nPlease put your key file (sha256(localpart).pem)\nthere.",
+    "setup_done_title":         "Setup Complete",
+    "setup_done_body":          "Key generated.",
+    "setup_done_body_pw":       "Key generated. Please unlock with your password.",
+
+    # ── FetchCalendarDialog ───────────────────────────────────────────────────
+    "fetch_title":              "Download Calendar",
+    "fetch_description":        "Local key found, but no calendar yet.\nEnter your Nextcloud credentials to download\nthe calendar once.",
+    "btn_download":             "Download",
+    "err_url_required":         "Please enter a WebDAV URL.",
+    "err_url_prefix":           "URL must start with http:// or https://.\nDid you mean https://{url} ?",
+    "status_connecting":        "Connecting…",
+    "err_no_sign_keys":         "Error: File contains no signing keys (v3 or older).",
+    "err_signatures_missing":   "Error: Signatures missing in downloaded file.",
+    "err_user_sig_invalid":     "Error: User signature invalid — file tampered?",
+    "err_entry_sig_invalid":    "Error: Entry signature invalid — file tampered?",
+    "err_key_not_registered":   "Error: No local key is registered in this calendar.\nPlease ask the admin to add your key.",
+    "err_generic":              "Error: {exc}",
+
+    # ── ProvisionDialog ───────────────────────────────────────────────────────
+    "provision_title":          "Setup — Initial Configuration",
+    "provision_admin_label":    "Set up admin account:",
+    "provision_webdav_hint":    "WebDAV Sync (leave URL empty to skip):",
+    "btn_generate_key":         "Generate Key",
+
+    # ── AddEntryDialog ────────────────────────────────────────────────────────
+    "add_entry_title":          "Add Entry",
+    "edit_entry_title":         "Edit Entry",
+    "lbl_title":                "Title:",
+    "lbl_date":                 "Date (DD.MM.YYYY):",
+    "lbl_time":                 "Time (HH:MM | all-day | unknown):",
+    "lbl_comments":             "Comments:",
+    "lbl_one_per_line":         "(one per line)",
+    "lbl_color":                "Color:",
+    "lbl_recurrence":           "Recurrence:",
+    "btn_edit_recurrence":      "Edit…",
+    "btn_add":                  "Add",
+    "err_title_empty":          "Title cannot be empty.",
+    "err_date_invalid":         "Invalid date. Use DD.MM.YYYY.",
+    "err_time_invalid":         "Invalid time. Use HH:MM, all-day, or unknown.",
+
+    # ── SyncConfigDialog ──────────────────────────────────────────────────────
+    "sync_title":               "Sync Settings",
+    "sync_hint":                "Leave WebDAV URL empty to disable sync.",
+
+    # ── RecurrenceDialog ──────────────────────────────────────────────────────
+    "recurrence_title":         "Recurrence",
+    "lbl_frequency":            "Frequency:",
+    "lbl_every":                "Every:",
+    "lbl_on_weekdays":          "On:",
+    "lbl_on_day":               "On day",
+    "lbl_of_month":             "of the month",
+    "lbl_on_the":               "On the",
+    "end_label":                "End",
+    "end_never":                "Never",
+    "end_on":                   "On:",
+    "end_date_format":          "DD.MM.YYYY",
+    "end_after":                "After:",
+    "end_repetitions":          "repetitions",
+    "err_interval_invalid":     "Interval must be ≥ 1.",
+    "err_no_weekday":           "Please select at least one weekday.",
+    "err_day_invalid":          "Day must be between 1 and 31.",
+    "err_end_date_invalid":     "Invalid end date. Format: DD.MM.YYYY",
+    "err_count_invalid":        "Count must be ≥ 1.",
+
+    # ── Recurrence summary ────────────────────────────────────────────────────
+    "rec_none":                 "-",
+    "rec_daily":                "Daily",
+    "rec_every_n_days":         "Every {n} days",
+    "rec_weekly":               "Weekly",
+    "rec_every_n_weeks":        "Every {n} weeks",
+    "rec_monthly":              "Monthly",
+    "rec_every_n_months":       "Every {n} months",
+    "rec_yearly":               "Yearly",
+    "rec_every_n_years":        "Every {n} years",
+    "rec_on_day":               "on day {day}",
+
+    # ── ViewEntryDialog ───────────────────────────────────────────────────────
+    "view_entry_title":         "View Entry",
+    "lbl_id":                   "ID",
+    "lbl_entry_title_field":    "Title",
+    "lbl_date_plain":           "Date",
+    "lbl_time_plain":           "Time",
+    "lbl_comments_plain":       "Comments:",
+    "lbl_none":                 "none",
+
+    # ── AddUserDialog ─────────────────────────────────────────────────────────
+    "add_user_title":           "Add User",
+    "lbl_generate_keypair":     "Generate key pair",
+    "lbl_external_key":         "Provide own public key (PEM):",
+    "lbl_role":                 "Role:",
+    "btn_add_user":             "Add",
+    "err_pubkey_empty":         "Please enter a public key (PEM).",
+    "err_pubkey_invalid":       "Invalid public key. Please use PEM format.",
+
+    # ── UserManagementDialog ──────────────────────────────────────────────────
+    "user_mgmt_title":          "User Management",
+    "btn_add_user_toolbar":     "+ Add User",
+    "col_email":                "Email",
+    "col_role":                 "Role",
+    "btn_remove":               "Remove",
+    "hint_select_user":         "Please select a user first.",
+    "confirm_remove_title":     "Remove User",
+    "confirm_remove_body":      "Remove user '{label}'?\n\nThe calendar key will be rotated (all entries re-encrypted).",
+    "save_key_title":           "Save private key for {email}",
+    "file_type_pem":            "PEM key",
+    "key_saved_title":          "Saved",
+    "key_saved_body":           "Key saved:\n{path}\n\nTransfer this securely to the user.",
+    "err_save_failed":          "Save failed: {exc}",
+
+    # ── MainWindow ────────────────────────────────────────────────────────────
+    "btn_add_toolbar":          "Add",
+    "btn_edit_toolbar":         "Edit",
+    "btn_delete_toolbar":       "Delete",
+    "btn_settings_toolbar":     "Settings",
+    "btn_users_toolbar":        "Users",
+    "btn_sync_toolbar":         "Sync",
+    "btn_today":                "Today",
+    "col_date":                 "Date",
+    "col_time":                 "Time",
+    "col_title":                "Title",
+    "col_comments":             "Comments",
+    "warn_unsigned":            "Warning: calendar file is unsigned — entries may have been tampered with.",
+    "status_no_entries":        "No events this month.",
+    "status_entry_singular":    "{count} event",
+    "status_entry_plural":      "{count} events",
+    "edit_select_one":          "Select exactly one entry to edit.",
+    "delete_select_some":       "Select one or more entries first.",
+    "confirm_delete_title":     "Confirm Deletion",
+    "confirm_delete_singular":  "Delete {count} entry?",
+    "confirm_delete_plural":    "Delete {count} entries?",
+    "status_added":             "Entry added.",
+    "status_updated":           "Entry updated.",
+    "status_deleted_singular":  "{count} entry deleted.",
+    "status_deleted_plural":    "{count} entries deleted.",
+    "status_not_found":         "No matching entries found.",
+    "status_sync_saved":        "Sync saved — {url}",
+    "status_sync_disabled":     "Sync disabled.",
+    "status_syncing":           "Syncing…",
+    "status_sync_done":         "Sync complete.",
+    "kw_label":                 "CW {wk:02d} · {yr}",
+
+    # ── LanguageDialog ────────────────────────────────────────────────────────
+    "lang_dialog_title":        "Language",
+    "lang_dialog_hint":         "Will be applied on next start.",
+    "btn_language":             "Language",
+}

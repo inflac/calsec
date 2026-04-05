@@ -6,17 +6,12 @@ from datetime import datetime, date as _date
 import tkinter as tk
 from tkinter import ttk
 
+import i18n
 import settings
 import theme
 from ui.dialogs import (AddEntryDialog, ViewEntryDialog,
-                        SyncConfigDialog, UserManagementDialog,
+                        SyncConfigDialog, UserManagementDialog, LanguageDialog,
                         show_info, show_error, ask_yes_no)
-
-
-_GERMAN_MONTHS = [
-    "", "Januar", "Februar", "März", "April", "Mai", "Juni",
-    "Juli", "August", "September", "Oktober", "November", "Dezember",
-]
 
 
 def _kw_iid(year: int, week: int) -> str:
@@ -57,10 +52,7 @@ class MainWindow(ttk.Frame):
         self._initial_refresh()
 
         if app.unsigned:
-            self._set_status(
-                "Warning: calendar file is unsigned — entries may have been tampered with.",
-                error=True,
-            )
+            self._set_status(i18n._("warn_unsigned"), error=True)
 
     def _build_ui(self):
         # ── Toolbar ──────────────────────────────────────────────────────────
@@ -68,18 +60,18 @@ class MainWindow(ttk.Frame):
         toolbar.pack(side="top", fill="x", padx=6, pady=(6, 0))
 
         if self._app.can_edit:
-            ttk.Button(toolbar, text="Add",
+            ttk.Button(toolbar, text=i18n._("btn_add_toolbar"),
                        command=self._add).pack(side="left", padx=2)
-            ttk.Button(toolbar, text="Edit",
+            ttk.Button(toolbar, text=i18n._("btn_edit_toolbar"),
                        command=self._edit).pack(side="left", padx=2)
-            ttk.Button(toolbar, text="Delete",
+            ttk.Button(toolbar, text=i18n._("btn_delete_toolbar"),
                        command=self._delete).pack(side="left", padx=2)
         if self._app.is_admin:
-            ttk.Button(toolbar, text="Settings",
+            ttk.Button(toolbar, text=i18n._("btn_settings_toolbar"),
                        command=self._sync_settings).pack(side="left", padx=2)
-            ttk.Button(toolbar, text="Benutzer",
+            ttk.Button(toolbar, text=i18n._("btn_users_toolbar"),
                        command=self._manage_users).pack(side="left", padx=2)
-        ttk.Button(toolbar, text="Sync",
+        ttk.Button(toolbar, text=i18n._("btn_sync_toolbar"),
                    command=self._pull_sync).pack(side="left", padx=2)
 
         self._version_var = tk.StringVar()
@@ -90,6 +82,9 @@ class MainWindow(ttk.Frame):
             icon = "☀" if settings.get("theme") == "dark" else "☾"
             ttk.Button(toolbar, text=icon, width=3,
                        command=self._on_toggle_theme).pack(side="right", padx=(0, 2))
+
+        ttk.Button(toolbar, text=i18n._("btn_language"), width=8,
+                   command=self._open_language).pack(side="right", padx=(0, 2))
 
         # ── Month navigator ───────────────────────────────────────────────────
         nav = ttk.Frame(self)
@@ -102,7 +97,7 @@ class MainWindow(ttk.Frame):
                   anchor="center", width=20).pack(side="left", padx=8)
         ttk.Button(nav, text="→", width=3,
                    command=self._next_month).pack(side="left")
-        ttk.Button(nav, text="Heute",
+        ttk.Button(nav, text=i18n._("btn_today"),
                    command=self._goto_today).pack(side="left", padx=(14, 0))
 
         # ── Treeview ──────────────────────────────────────────────────────────
@@ -113,10 +108,10 @@ class MainWindow(ttk.Frame):
         self._tree = ttk.Treeview(tree_frame, columns=cols, show="headings",
                                    selectmode="extended")
 
-        self._tree.heading("date",     text="Datum")
-        self._tree.heading("time",     text="Uhrzeit")
-        self._tree.heading("title",    text="Titel")
-        self._tree.heading("comments", text="Kommentare")
+        self._tree.heading("date",     text=i18n._("col_date"))
+        self._tree.heading("time",     text=i18n._("col_time"))
+        self._tree.heading("title",    text=i18n._("col_title"))
+        self._tree.heading("comments", text=i18n._("col_comments"))
 
         self._tree.column("date",     width=100, anchor="center")
         self._tree.column("time",     width=80,  anchor="center")
@@ -182,7 +177,7 @@ class MainWindow(ttk.Frame):
         self._row_to_id.clear()
 
         self._month_var.set(
-            f"{_GERMAN_MONTHS[self._view_month]} {self._view_year}")
+            f"{i18n.MONTHS[self._view_month]} {self._view_year}")
 
         # Configure all tags BEFORE inserting any rows.
         # In the clam theme, calling tag_configure after inserts causes the last
@@ -217,7 +212,7 @@ class MainWindow(ttk.Frame):
                 current_week_key = week_key
                 if week_key:
                     yr, wk = week_key
-                    label = f"KW {wk:02d} · {yr}"
+                    label = i18n._("kw_label").format(wk=wk, yr=yr)
                     iid = _kw_iid(yr, wk)
                     if not self._tree.exists(iid):
                         self._tree.insert("", "end",
@@ -244,9 +239,11 @@ class MainWindow(ttk.Frame):
         self._version_var.set(f"v{self._app.version}")
         count = len(entries)
         if count == 0:
-            self._set_status("Keine Termine in diesem Monat.")
+            self._set_status(i18n._("status_no_entries"))
+        elif count == 1:
+            self._set_status(i18n._("status_entry_singular").format(count=count))
         else:
-            self._set_status(f"{count} Termin{'e' if count != 1 else ''}")
+            self._set_status(i18n._("status_entry_plural").format(count=count))
 
     def _set_status(self, msg: str, error: bool = False):
         self._status_var.set(f"  {msg}")
@@ -285,7 +282,7 @@ class MainWindow(ttk.Frame):
                 recurrence=recurrence, on_sync_done=self._on_sync_done,
             )
         except Exception as exc:
-            show_error(self, "Error", str(exc))
+            show_error(self, i18n._("err_title"), str(exc))
             return
 
         # Jump to the month of the new entry
@@ -296,12 +293,12 @@ class MainWindow(ttk.Frame):
             pass
 
         self.refresh()
-        self._set_status("Eintrag hinzugefügt.")
+        self._set_status(i18n._("status_added"))
 
     def _edit(self):
         ids = self._selected_base_ids()
         if len(ids) != 1:
-            show_info(self, "Edit", "Genau einen Eintrag zum Bearbeiten auswählen.")
+            show_info(self, i18n._("btn_edit_toolbar"), i18n._("edit_select_one"))
             return
 
         entry_id = ids[0]
@@ -322,11 +319,11 @@ class MainWindow(ttk.Frame):
                 recurrence=recurrence, on_sync_done=self._on_sync_done,
             )
         except Exception as exc:
-            show_error(self, "Error", str(exc))
+            show_error(self, i18n._("err_title"), str(exc))
             return
 
         self.refresh()
-        self._set_status("Eintrag aktualisiert.")
+        self._set_status(i18n._("status_updated"))
 
     def _on_double_click(self, event):
         item = self._tree.identify_row(event.y)
@@ -344,26 +341,29 @@ class MainWindow(ttk.Frame):
     def _delete(self):
         ids = self._selected_base_ids()
         if not ids:
-            show_info(self, "Delete", "Zuerst einen oder mehrere Einträge auswählen.")
+            show_info(self, i18n._("btn_delete_toolbar"), i18n._("delete_select_some"))
             return
 
         count = len(ids)
-        noun = "Eintrag" if count == 1 else "Einträge"
-        if not ask_yes_no(self, "Löschen bestätigen", f"{count} {noun} löschen?"):
+        body = (i18n._("confirm_delete_singular") if count == 1
+                else i18n._("confirm_delete_plural")).format(count=count)
+        if not ask_yes_no(self, i18n._("confirm_delete_title"), body):
             return
 
         try:
             deleted = self._app.delete_entries(ids,
                 on_sync_done=self._on_sync_done)
         except Exception as exc:
-            show_error(self, "Error", str(exc))
+            show_error(self, i18n._("err_title"), str(exc))
             return
 
         self.refresh()
         if deleted:
-            self._set_status(f"{count} {noun} gelöscht.")
+            status = (i18n._("status_deleted_singular") if count == 1
+                      else i18n._("status_deleted_plural")).format(count=count)
+            self._set_status(status)
         else:
-            self._set_status("Keine passenden Einträge gefunden.")
+            self._set_status(i18n._("status_not_found"))
 
     def _sync_settings(self):
         current = self._app.sync_config
@@ -376,23 +376,28 @@ class MainWindow(ttk.Frame):
         try:
             self._app.update_sync_config(sync_data, on_sync_done=self._on_sync_done)
         except Exception as exc:
-            show_error(self, "Error", str(exc))
+            show_error(self, i18n._("err_title"), str(exc))
             return
 
         if sync_data:
-            self._set_status(f"Sync gespeichert — {sync_data['webdav_url']}")
+            self._set_status(i18n._("status_sync_saved").format(url=sync_data["webdav_url"]))
         else:
-            self._set_status("Sync deaktiviert.")
+            self._set_status(i18n._("status_sync_disabled"))
         self.refresh()
 
     def _manage_users(self):
         UserManagementDialog(self, self._app)
 
+    def _open_language(self):
+        dlg = LanguageDialog(self)
+        self.wait_window(dlg)
+
     def _pull_sync(self):
-        self._set_status("Synchronisiere…")
+        self._set_status(i18n._("status_syncing"))
         self._app.sync_pull(on_done=self._on_sync_done)
 
     def _on_sync_done(self, msg: str):
         is_error = bool(msg and msg.startswith("Sync error"))
-        self.after(0, lambda: self._set_status(msg or "Sync abgeschlossen.", error=is_error))
+        display = msg or i18n._("status_sync_done")
+        self.after(0, lambda: self._set_status(display, error=is_error))
         self.after(0, self.refresh)

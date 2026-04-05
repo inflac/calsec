@@ -1,0 +1,203 @@
+MONTHS = [
+    "", "Januar", "Februar", "März", "April", "Mai", "Juni",
+    "Juli", "August", "September", "Oktober", "November", "Dezember",
+]
+
+WD_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+WD_LONG  = ["Montag", "Dienstag", "Mittwoch", "Donnerstag",
+             "Freitag", "Samstag", "Sonntag"]
+
+FREQ_OPTS = [
+    ("Nicht wiederkehrend", "none"),
+    ("Täglich",             "daily"),
+    ("Wöchentlich",         "weekly"),
+    ("Monatlich",           "monthly"),
+    ("Jährlich",            "yearly"),
+]
+FREQ_UNITS = {
+    "daily":   "Tag(e)",
+    "weekly":  "Woche(n)",
+    "monthly": "Monat(e)",
+    "yearly":  "Jahr(e)",
+}
+POS_OPTS = [("1.", "1"), ("2.", "2"), ("3.", "3"), ("4.", "4"), ("Letzten", "-1")]
+
+STRINGS = {
+    # ── Generic ───────────────────────────────────────────────────────────────
+    "btn_ok":                   "OK",
+    "btn_yes":                  "Ja",
+    "btn_no":                   "Nein",
+    "btn_cancel":               "Abbrechen",
+    "btn_save":                 "Speichern",
+    "btn_close":                "Schließen",
+    "lbl_email":                "E-Mail:",
+    "lbl_webdav_url":           "WebDAV-URL:",
+    "lbl_username":             "Benutzername:",
+    "lbl_app_password":         "App-Passwort:",
+    "lbl_password":             "Passwort:",
+    "lbl_confirm_pw":           "Wiederholen:",
+    "lbl_no_password":          "Ohne Passwort",
+    "err_title":                "Fehler",
+    "err_email_invalid":        "Bitte eine gültige E-Mail-Adresse eingeben.",
+    "err_passwords_mismatch":   "Passwörter stimmen nicht überein.",
+    "err_password_too_short":   "Passwort muss mindestens 8 Zeichen haben.",
+    "err_username_required":    "Benutzername erforderlich.",
+    "err_url_invalid_title":    "Ungültige URL",
+    "err_url_invalid_body":     "URL muss mit http:// oder https:// beginnen.\n\nMeintest du: https://{url} ?",
+
+    # ── LoginFrame ────────────────────────────────────────────────────────────
+    "login_subtitle":           "Encrypted Calendar",
+    "login_password":           "Passwort:",
+    "btn_unlock":               "Entsperren",
+    "err_wrong_password":       "Falsches Passwort.",
+    "err_key_derivation":       "Schlüsselableitung fehlgeschlagen.",
+    "err_admin_key_decrypt":    "Admin-Signing-Key konnte nicht entschlüsselt werden.",
+    "err_edit_key_decrypt":     "Edit-Signing-Key konnte nicht entschlüsselt werden.",
+    "err_no_user_title":        "Kein Benutzer",
+    "err_no_user_body":         "Kein passender Schlüssel in\n'{keys_dir}'\ngefunden.\n\nBitte den eigenen Schlüssel (sha256(localpart).pem)\ndort ablegen.",
+    "setup_done_title":         "Setup abgeschlossen",
+    "setup_done_body":          "Schlüssel generiert.",
+    "setup_done_body_pw":       "Schlüssel generiert. Bitte mit dem Passwort entsperren.",
+
+    # ── FetchCalendarDialog ───────────────────────────────────────────────────
+    "fetch_title":              "Kalender herunterladen",
+    "fetch_description":        "Lokaler Schlüssel gefunden, aber noch kein Kalender.\nNextcloud-Zugangsdaten eingeben, um den Kalender\neinmalig herunterzuladen.",
+    "btn_download":             "Herunterladen",
+    "err_url_required":         "Bitte WebDAV-URL eingeben.",
+    "err_url_prefix":           "URL muss mit http:// oder https:// beginnen.\nMeintest du https://{url} ?",
+    "status_connecting":        "Verbinde…",
+    "err_no_sign_keys":         "Fehler: Datei enthält keine Signierschlüssel (v3 oder älter).",
+    "err_signatures_missing":   "Fehler: Signaturen fehlen in der heruntergeladenen Datei.",
+    "err_user_sig_invalid":     "Fehler: Benutzersignatur ungültig — Datei manipuliert?",
+    "err_entry_sig_invalid":    "Fehler: Eintrags-Signatur ungültig — Datei manipuliert?",
+    "err_key_not_registered":   "Fehler: Kein lokaler Schlüssel ist in diesem Kalender\nregistriert. Bitte den Admin bitten, deinen Key hinzuzufügen.",
+    "err_generic":              "Fehler: {exc}",
+
+    # ── ProvisionDialog ───────────────────────────────────────────────────────
+    "provision_title":          "Setup — Erstkonfiguration",
+    "provision_admin_label":    "Admin-Konto einrichten:",
+    "provision_webdav_hint":    "WebDAV Sync (URL leer lassen zum Überspringen):",
+    "btn_generate_key":         "Schlüssel generieren",
+
+    # ── AddEntryDialog ────────────────────────────────────────────────────────
+    "add_entry_title":          "Eintrag hinzufügen",
+    "edit_entry_title":         "Eintrag bearbeiten",
+    "lbl_title":                "Titel:",
+    "lbl_date":                 "Datum (TT.MM.JJJJ):",
+    "lbl_time":                 "Uhrzeit (HH:MM | all-day | unknown):",
+    "lbl_comments":             "Kommentare:",
+    "lbl_one_per_line":         "(eine pro Zeile)",
+    "lbl_color":                "Farbe:",
+    "lbl_recurrence":           "Wiederholung:",
+    "btn_edit_recurrence":      "Bearbeiten…",
+    "btn_add":                  "Hinzufügen",
+    "err_title_empty":          "Titel darf nicht leer sein.",
+    "err_date_invalid":         "Ungültiges Datum. Format: TT.MM.JJJJ",
+    "err_time_invalid":         "Ungültige Uhrzeit. Format: HH:MM, all-day oder unknown.",
+
+    # ── SyncConfigDialog ──────────────────────────────────────────────────────
+    "sync_title":               "Sync-Einstellungen",
+    "sync_hint":                "WebDAV-URL leer lassen, um Sync zu deaktivieren.",
+
+    # ── RecurrenceDialog ──────────────────────────────────────────────────────
+    "recurrence_title":         "Wiederholung",
+    "lbl_frequency":            "Frequenz:",
+    "lbl_every":                "Alle:",
+    "lbl_on_weekdays":          "An:",
+    "lbl_on_day":               "Am Tag",
+    "lbl_of_month":             "des Monats",
+    "lbl_on_the":               "Am",
+    "end_label":                "Ende",
+    "end_never":                "Nie",
+    "end_on":                   "Am:",
+    "end_date_format":          "TT.MM.JJJJ",
+    "end_after":                "Nach:",
+    "end_repetitions":          "Wiederholungen",
+    "err_interval_invalid":     "Intervall muss ≥ 1 sein.",
+    "err_no_weekday":           "Bitte mindestens einen Wochentag auswählen.",
+    "err_day_invalid":          "Tag muss zwischen 1 und 31 liegen.",
+    "err_end_date_invalid":     "Ungültiges Enddatum. Format: TT.MM.JJJJ",
+    "err_count_invalid":        "Anzahl muss ≥ 1 sein.",
+
+    # ── Recurrence summary ────────────────────────────────────────────────────
+    "rec_none":                 "-",
+    "rec_daily":                "Täglich",
+    "rec_every_n_days":         "Alle {n} Tage",
+    "rec_weekly":               "Wöchentlich",
+    "rec_every_n_weeks":        "Alle {n} Wochen",
+    "rec_monthly":              "Monatlich",
+    "rec_every_n_months":       "Alle {n} Monate",
+    "rec_yearly":               "Jährlich",
+    "rec_every_n_years":        "Alle {n} Jahre",
+    "rec_on_day":               "am {day}.",
+
+    # ── ViewEntryDialog ───────────────────────────────────────────────────────
+    "view_entry_title":         "Eintrag ansehen",
+    "lbl_id":                   "ID",
+    "lbl_entry_title_field":    "Titel",
+    "lbl_date_plain":           "Datum",
+    "lbl_time_plain":           "Uhrzeit",
+    "lbl_comments_plain":       "Kommentare:",
+    "lbl_none":                 "–",
+
+    # ── AddUserDialog ─────────────────────────────────────────────────────────
+    "add_user_title":           "Benutzer hinzufügen",
+    "lbl_generate_keypair":     "Schlüsselpaar generieren",
+    "lbl_external_key":         "Eigenen Public Key angeben (PEM):",
+    "lbl_role":                 "Rolle:",
+    "btn_add_user":             "Hinzufügen",
+    "err_pubkey_empty":         "Bitte einen Public Key (PEM) eingeben.",
+    "err_pubkey_invalid":       "Ungültiger Public Key. Bitte PEM-Format verwenden.",
+
+    # ── UserManagementDialog ──────────────────────────────────────────────────
+    "user_mgmt_title":          "Benutzerverwaltung",
+    "btn_add_user_toolbar":     "+ Benutzer hinzufügen",
+    "col_email":                "E-Mail",
+    "col_role":                 "Rolle",
+    "btn_remove":               "Entfernen",
+    "hint_select_user":         "Zuerst einen Benutzer auswählen.",
+    "confirm_remove_title":     "Benutzer entfernen",
+    "confirm_remove_body":      "Benutzer '{label}' entfernen?\n\nDer Kalender-Schlüssel wird dabei rotiert (alle Einträge werden neu verschlüsselt).",
+    "save_key_title":           "Privaten Schlüssel für {email} speichern",
+    "file_type_pem":            "PEM-Schlüssel",
+    "key_saved_title":          "Gespeichert",
+    "key_saved_body":           "Schlüssel gespeichert:\n{path}\n\nDiesen sicher an den Benutzer übertragen.",
+    "err_save_failed":          "Speichern fehlgeschlagen: {exc}",
+
+    # ── MainWindow ────────────────────────────────────────────────────────────
+    "btn_add_toolbar":          "Hinzufügen",
+    "btn_edit_toolbar":         "Bearbeiten",
+    "btn_delete_toolbar":       "Löschen",
+    "btn_settings_toolbar":     "Einstellungen",
+    "btn_users_toolbar":        "Benutzer",
+    "btn_sync_toolbar":         "Sync",
+    "btn_today":                "Heute",
+    "col_date":                 "Datum",
+    "col_time":                 "Uhrzeit",
+    "col_title":                "Titel",
+    "col_comments":             "Kommentare",
+    "warn_unsigned":            "Warnung: Kalenderdatei ist unsigniert — Einträge könnten manipuliert worden sein.",
+    "status_no_entries":        "Keine Termine in diesem Monat.",
+    "status_entry_singular":    "{count} Termin",
+    "status_entry_plural":      "{count} Termine",
+    "edit_select_one":          "Genau einen Eintrag zum Bearbeiten auswählen.",
+    "delete_select_some":       "Zuerst einen oder mehrere Einträge auswählen.",
+    "confirm_delete_title":     "Löschen bestätigen",
+    "confirm_delete_singular":  "{count} Eintrag löschen?",
+    "confirm_delete_plural":    "{count} Einträge löschen?",
+    "status_added":             "Eintrag hinzugefügt.",
+    "status_updated":           "Eintrag aktualisiert.",
+    "status_deleted_singular":  "{count} Eintrag gelöscht.",
+    "status_deleted_plural":    "{count} Einträge gelöscht.",
+    "status_not_found":         "Keine passenden Einträge gefunden.",
+    "status_sync_saved":        "Sync gespeichert — {url}",
+    "status_sync_disabled":     "Sync deaktiviert.",
+    "status_syncing":           "Synchronisiere…",
+    "status_sync_done":         "Sync abgeschlossen.",
+    "kw_label":                 "KW {wk:02d} · {yr}",
+
+    # ── LanguageDialog ────────────────────────────────────────────────────────
+    "lang_dialog_title":        "Sprache",
+    "lang_dialog_hint":         "Wird beim nächsten Start angewendet.",
+    "btn_language":             "Sprache",
+}
