@@ -13,8 +13,6 @@ import os
 import stat
 import sys
 import tempfile
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
@@ -74,6 +72,26 @@ def _asset_name() -> str:
     return _ASSET_NAME if sys.platform.startswith("linux") else ""
 
 
+# ── HTTP session ───────────────────────────────────────────────────────────────
+
+def _session():
+    """Return a requests.Session configured for Tor if torsocks is active."""
+    import requests
+
+    s = requests.Session()
+    s.headers["User-Agent"] = f"calsec-updater/{current_version()}"
+    s.headers["Accept"] = "application/vnd.github+json"
+
+    # If launched under torsocks (LD_PRELOAD), bypass the LD_PRELOAD mechanism
+    # and talk to the Tor SOCKS5 proxy directly. socks5h delegates hostname
+    # resolution to the proxy so no DNS leaks occur.
+    if "torsocks" in os.environ.get("LD_PRELOAD", "").lower():
+        tor_proxy = "socks5h://127.0.0.1:9050"
+        s.proxies = {"http": tor_proxy, "https": tor_proxy}
+
+    return s
+
+
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 def check_for_update() -> Optional[UpdateInfo]:
@@ -82,18 +100,12 @@ def check_for_update() -> Optional[UpdateInfo]:
 
     Returns an UpdateInfo if a newer version exists and a matching binary
     asset is found.  Returns None if already up-to-date or no asset matches.
-    Raises urllib.error.URLError / json.JSONDecodeError on network failures.
+    Raises requests.exceptions.RequestException on network failures.
     """
     url = _channel_url()
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": f"calsec-updater/{current_version()}",
-            "Accept": "application/vnd.github+json",
-        },
-    )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        data = json.loads(resp.read().decode())
+    resp = _session().get(url, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
 
     latest_tag = data.get("tag_name", "")
     if _version_tuple(latest_tag) <= _version_tuple(current_version()):
@@ -129,18 +141,14 @@ def download_update(
     os.close(fd)
 
     try:
-        req = urllib.request.Request(
-            info.download_url,
-            headers={"User-Agent": f"calsec-updater/{current_version()}"},
-        )
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with _session().get(info.download_url, timeout=120, stream=True) as resp:
+            resp.raise_for_status()
             total = int(resp.headers.get("Content-Length", 0))
             done = 0
             with open(tmp, "wb") as f:
-                while True:
-                    chunk = resp.read(65536)
+                for chunk in resp.iter_content(chunk_size=65536):
                     if not chunk:
-                        break
+                        continue
                     f.write(chunk)
                     done += len(chunk)
                     if progress_cb:
@@ -173,18 +181,14 @@ def _verify_release_signature(binary: Path, binary_url: str) -> None:
     if not _RELEASE_PUBLIC_KEY_PEM:
         return
 
+    import requests
+
     sig_url = binary_url + ".sig"
-    try:
-        req = urllib.request.Request(
-            sig_url,
-            headers={"User-Agent": f"calsec-updater/{current_version()}"},
-        )
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            sig_b64 = resp.read().decode().strip()
-    except urllib.error.HTTPError as exc:
-        if exc.code == 404:
-            return  # no .sig file published — skip verification
-        raise
+    resp = _session().get(sig_url, timeout=15)
+    if resp.status_code == 404:
+        return  # no .sig file published — skip verification
+    resp.raise_for_status()
+    sig_b64 = resp.text.strip()
 
     import base64
     from cryptography.exceptions import InvalidSignature
@@ -207,7 +211,7 @@ def apply_update(new_binary: Path) -> None:
     """
     Replace the running binary with *new_binary* and restart the process.
 
-    Replaces the binary atomically, then spawns a fresh process with
+    Replaces the binary atomically, then spawns a detached fresh process with
     close_fds=True to avoid inheriting X11 sockets or other open handles.
     Falls back to copy+delete when tmp and exe live on different filesystems
     (EXDEV — common on Tails where /tmp is tmpfs).
@@ -229,5 +233,9 @@ def apply_update(new_binary: Path) -> None:
         shutil.copy2(new_binary, exe)
         os.unlink(new_binary)
 
-    subprocess.Popen([str(exe)] + sys.argv[1:], close_fds=True)
+    subprocess.Popen(
+        [str(exe)] + sys.argv[1:],
+        close_fds=True,
+        start_new_session=True,  # detach from parent terminal
+    )
     sys.exit(0)

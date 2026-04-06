@@ -52,6 +52,7 @@ jobs:
             --add-data "$PWD/assets/icon.png:." \
             --collect-all cryptography \
             --hidden-import=version \
+            --hidden-import=socks \
             --distpath build \
             --workpath build/work \
             --specpath build/spec \
