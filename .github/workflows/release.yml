@@ -38,8 +38,9 @@ jobs:
 
       - name: Build HTML docs
         run: |
-          pandoc README.md -o build/README.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8
-          pandoc WHITEPAPER.md -o build/WHITEPAPER.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8
+          mkdir -p build
+          pandoc README.md -o build/README.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata title="CalSec" --metadata charset=UTF-8
+          pandoc WHITEPAPER.md -o build/WHITEPAPER.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata title="CalSec — Whitepaper" --metadata charset=UTF-8
 
       - name: Build Linux binary
         run: |
@@ -97,8 +98,9 @@ jobs:
 
       - name: Build HTML docs
         run: |
-          pandoc README.md -o build/README.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8
-          pandoc WHITEPAPER.md -o build/WHITEPAPER.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8
+          New-Item -ItemType Directory -Force -Path build | Out-Null
+          pandoc README.md -o build/README.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata title="CalSec" --metadata charset=UTF-8
+          pandoc WHITEPAPER.md -o build/WHITEPAPER.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata title="CalSec — Whitepaper" --metadata charset=UTF-8
 
       - name: Set version from tag
         run: |
