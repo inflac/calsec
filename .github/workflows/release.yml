@@ -41,7 +41,7 @@ jobs:
             --noconsole \
             --strip \
             --optimize=2 \
-            --add-data "assets/icon.png:." \
+            --add-data "$PWD/assets/icon.png:." \
             --collect-all cryptography \
             --distpath build \
             --workpath build/work \
@@ -97,8 +97,8 @@ jobs:
             --noconsole `
             --strip `
             --optimize=2 `
-            --icon assets/icon.ico `
-            "--add-data=assets/icon.ico;." `
+            --icon "$((Get-Location).Path)\assets\icon.ico" `
+            "--add-data=$((Get-Location).Path)\assets\icon.ico;." `
             --collect-all cryptography `
             --distpath build `
             --workpath build/work `
