@@ -212,7 +212,7 @@ STRINGS = {
     "settings_update_auto":     "Install automatically",
     "settings_update_notify":   "Notify only",
     "settings_channel_label":   "Update channel:",
-    "settings_channel_official":"Official  (github.com/inflac/calsec)",
+    "settings_channel_official":"Official (GitHub Releases)",
     "settings_channel_custom":  "Custom URL:",
     "btn_app_settings":         "⚙",
 
