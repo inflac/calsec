@@ -77,8 +77,7 @@ class MainWindow(ttk.Frame):
         ttk.Button(toolbar, text=i18n._("btn_sync_toolbar"),
                    command=self._pull_sync).pack(side="left", padx=2)
 
-        import updater
-        self._version_var = tk.StringVar(value=f"v{updater.current_version()}")
+        self._version_var = tk.StringVar()
         ttk.Label(toolbar, textvariable=self._version_var,
                   foreground=theme.FG_DIM).pack(side="right", padx=8)
 
