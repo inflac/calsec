@@ -9,6 +9,7 @@ This version contains the most up-to-date features and security patches. Older v
 | -------------- | ------------------ |
 | Latest         | :white_check_mark: |
 | Older versions | :x:                |
+| 0.x.x          | :x:                |
 
 ## Reporting a Vulnerability
 

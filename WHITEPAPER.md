@@ -42,7 +42,7 @@ Each user receives a copy of `sym_key_cal` encrypted to their public key via **E
 
 Each calendar entry is encrypted with a **random per-entry AES-256 key**:
 
-```
+```text
 entry_key  ──AES-256-GCM──▶  entry_key_enc   (wrapped with sym_key_cal)
 entry_data ──AES-256-GCM──▶  data_enc        (encrypted with entry_key, entry ID as AAD)
 ```
@@ -53,7 +53,7 @@ Using the entry ID as Additional Authenticated Data (AAD) prevents an attacker f
 
 `calendar.json` contains two independent ECDSA-SHA256 signatures:
 
-```
+```text
 sig_users   = ECDSA(kpriv_admin_sign,  sign_keys || users || sync_config)
 sig_entries = ECDSA(kpriv_edit_sign,   entries)
 ```
@@ -69,7 +69,7 @@ Signing private keys are stored inside `calendar.json` encrypted to each eligibl
 
 ### File Structure
 
-```
+```text
 calendar.json
 ├── version
 ├── sign_keys          (public signing keys — readable by all)
@@ -94,7 +94,7 @@ All official CalSec binaries are signed with an Ed25519 key. The corresponding p
 
 **Release signing public key:**
 
-```
+```text
 -----BEGIN PUBLIC KEY-----
 MCowBQYDK2VwAyEAUsv9qguzU98L3EcONyrMLxDj+8GoLPS/QTzrcA8A7cA=
 -----END PUBLIC KEY-----

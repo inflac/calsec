@@ -251,6 +251,8 @@ class UpdateDialog(tk.Toplevel):
         self._progress.configure(mode="determinate", value=100)
         self.update()
         try:
+            # Stop the mainloop to close windows before starting new process
+            self.master.winfo_toplevel().quit()
             updater.apply_update(tmp_path)  # spawns new process + sys.exit(0)
         except Exception as exc:
             self._on_error(str(exc))
