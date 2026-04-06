@@ -107,6 +107,7 @@
         "--optimize=2",
         "--add-data", "${workspaceFolder}/assets/icon.png:.",
         "--collect-all", "cryptography",
+        "--hidden-import", "version",
         "--distpath", "build",
         "--workpath", "build/work",
         "--specpath", "build/spec",

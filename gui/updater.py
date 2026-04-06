@@ -207,12 +207,14 @@ def apply_update(new_binary: Path) -> None:
     """
     Replace the running binary with *new_binary* and restart the process.
 
-    Uses atomic os.replace() + os.execv() (never returns).
+    Replaces the binary atomically, then spawns a fresh process with
+    close_fds=True to avoid inheriting X11 sockets or other open handles.
     Falls back to copy+delete when tmp and exe live on different filesystems
     (EXDEV — common on Tails where /tmp is tmpfs).
     """
     import errno
     import shutil
+    import subprocess
 
     exe = Path(sys.executable)
 
@@ -227,4 +229,5 @@ def apply_update(new_binary: Path) -> None:
         shutil.copy2(new_binary, exe)
         os.unlink(new_binary)
 
-    os.execv(str(exe), sys.argv)
+    subprocess.Popen([str(exe)] + sys.argv[1:], close_fds=True)
+    sys.exit(0)
