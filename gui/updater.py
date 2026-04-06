@@ -228,10 +228,17 @@ def apply_update(new_binary: Path) -> None:
     try:
         os.replace(new_binary, exe)
     except OSError as exc:
-        if exc.errno != errno.EXDEV:
+        if exc.errno in (errno.EXDEV, errno.ETXTBSY):
+            # EXDEV:   /tmp and install dir are on different filesystems (common on Tails)
+            # ETXTBSY: binary is currently executing — unlink first, then copy
+            try:
+                os.unlink(exe)
+            except OSError:
+                pass
+            shutil.copy2(new_binary, exe)
+            os.unlink(new_binary)
+        else:
             raise
-        shutil.copy2(new_binary, exe)
-        os.unlink(new_binary)
 
     subprocess.Popen(
         [str(exe)] + sys.argv[1:],
