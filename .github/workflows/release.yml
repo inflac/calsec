@@ -1,0 +1,125 @@
+name: Release
+
+# Triggered by pushing a version tag, e.g.: git tag v1.2.3 && git push --tags
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+permissions:
+  contents: write  # required to create GitHub releases
+
+jobs:
+
+  # ── Linux binary ─────────────────────────────────────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system dependencies
+        run: sudo apt-get install -y python3-tk
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION = \"$VERSION\"" > gui/version.py
+          echo "Building version $VERSION"
+
+      - name: Build Linux binary
+        run: |
+          python -m PyInstaller \
+            --onefile \
+            --name calsec-linux \
+            --noconsole \
+            --strip \
+            --optimize=2 \
+            --add-data "assets/icon.png:." \
+            --collect-all cryptography \
+            --distpath build \
+            --workpath build/work \
+            --specpath build/spec \
+            gui/main.py
+
+      - name: Sign binary
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: python scripts/sign_release.py build/calsec-linux
+
+      - name: Package Linux zip
+        run: |
+          cd build && zip -j calsec-linux.zip \
+            calsec-linux \
+            calsec-linux.sig \
+            ../assets/icon.png \
+            ../assets/install_calsec.sh \
+            ../README.md
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/calsec-linux
+            build/calsec-linux.sig
+            build/calsec-linux.zip
+
+  # ── Windows binary ────────────────────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Set version from tag
+        run: |
+          $v = "${{ github.ref_name }}" -replace '^v', ''
+          "VERSION = `"$v`"" | Set-Content gui/version.py
+          Write-Host "Building version $v"
+
+      - name: Build Windows binary
+        run: |
+          python -m PyInstaller `
+            --onefile `
+            --name calsec `
+            --noconsole `
+            --strip `
+            --optimize=2 `
+            --icon assets/icon.ico `
+            "--add-data=assets/icon.ico;." `
+            --collect-all cryptography `
+            --distpath build `
+            --workpath build/work `
+            --specpath build/spec `
+            gui/main.py
+
+      - name: Sign binary
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: python scripts/sign_release.py build/calsec.exe
+
+      - name: Package Windows zip
+        run: |
+          Compress-Archive -Force `
+            -Path build/calsec.exe,build/calsec.exe.sig,assets/icon.png,assets/icon.ico,assets/install_calsec.sh,README.md `
+            -DestinationPath build/calsec-windows.zip
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/calsec.exe
+            build/calsec.exe.sig
+            build/calsec-windows.zip

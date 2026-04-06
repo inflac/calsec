@@ -8,7 +8,14 @@ import os
 _DIR  = os.path.join(os.path.expanduser("~"), ".calsec")
 _FILE = os.path.join(_DIR, "settings.json")
 
-_DEFAULTS: dict = {"theme": "dark", "language": "de"}
+_DEFAULTS: dict = {
+    "theme": "dark",
+    "language": "en",
+    # Update settings (only relevant for frozen/PyInstaller builds)
+    "updates_enabled": False,
+    "update_mode": "notify",    # "auto" | "notify"
+    "update_channel": "official",  # "official" | custom URL string
+}
 _current:  dict = dict(_DEFAULTS)
 
 

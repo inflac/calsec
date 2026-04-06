@@ -137,7 +137,7 @@ mkdir -p "$INSTALL_DIR/keys"
 mkdir -p "$INSTALL_DIR/pubkeys"
 
 # --- Copy files ---
-cp "$CURRENT_DIR/calsec" "$INSTALL_DIR/"
+cp "$CURRENT_DIR/calsec-linux" "$INSTALL_DIR/calsec"
 cp "$CURRENT_DIR/icon.png" "$INSTALL_DIR/"
 cp "$CURRENT_DIR/$SCRIPT_NAME" "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR/calsec"

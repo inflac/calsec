@@ -200,4 +200,29 @@ STRINGS = {
     "lang_dialog_title":        "Sprache",
     "lang_dialog_hint":         "Wird beim nächsten Start angewendet.",
     "btn_language":             "Sprache",
+
+    # ── SettingsDialog ────────────────────────────────────────────────────────
+    "settings_title":           "App-Einstellungen",
+    "settings_lang_section":    "Sprache",
+    "settings_lang_hint":       "Wird beim nächsten Start angewendet.",
+    "settings_update_section":  "Updates",
+    "settings_updates_enabled": "Auf Updates prüfen (nur für installierte Binaries)",
+    "settings_update_mode":     "Update-Modus:",
+    "settings_update_auto":     "Automatisch installieren",
+    "settings_update_notify":   "Nur benachrichtigen",
+    "settings_channel_label":   "Update-Channel:",
+    "settings_channel_official":"Offiziell  (github.com/inflac/calsec)",
+    "settings_channel_custom":  "Eigene URL:",
+    "btn_app_settings":         "⚙",
+
+    # ── UpdateCheckDialog ─────────────────────────────────────────────────────
+    "update_checking":          "Auf Updates prüfen…",
+    "update_up_to_date":        "Bereits aktuell.",
+    "update_available":         "Update {version} verfügbar.",
+    "update_downloading":       "Lade Update herunter… {pct}%",
+    "update_restarting":        "Update heruntergeladen. Neustart…",
+    "update_error":             "Update fehlgeschlagen: {exc}",
+    "update_install_btn":       "Jetzt installieren",
+    "btn_continue":             "Weiter",
+    "update_available_toolbar": "Update {version}",
 }

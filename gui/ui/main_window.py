@@ -10,7 +10,8 @@ import i18n
 import settings
 import theme
 from ui.dialogs import (AddEntryDialog, ViewEntryDialog,
-                        SyncConfigDialog, UserManagementDialog, LanguageDialog,
+                        SyncConfigDialog, UserManagementDialog,
+                        SettingsDialog, UpdateDialog,
                         show_info, show_error, ask_yes_no)
 
 
@@ -38,10 +39,11 @@ def _is_header(iid: str) -> bool:
 class MainWindow(ttk.Frame):
     """Main application frame: entry list + month navigator + action buttons."""
 
-    def __init__(self, parent, app, on_toggle_theme=None):
+    def __init__(self, parent, app, on_toggle_theme=None, pending_update=None):
         super().__init__(parent)
         self._app = app
         self._on_toggle_theme = on_toggle_theme
+        self._pending_update = pending_update
         self._row_to_id: dict[str, str] = {}
 
         today = _date.today()
@@ -56,8 +58,9 @@ class MainWindow(ttk.Frame):
 
     def _build_ui(self):
         # ── Toolbar ──────────────────────────────────────────────────────────
-        toolbar = ttk.Frame(self)
-        toolbar.pack(side="top", fill="x", padx=6, pady=(6, 0))
+        self._toolbar = ttk.Frame(self)
+        self._toolbar.pack(side="top", fill="x", padx=6, pady=(6, 0))
+        toolbar = self._toolbar
 
         if self._app.can_edit:
             ttk.Button(toolbar, text=i18n._("btn_add_toolbar"),
@@ -83,8 +86,18 @@ class MainWindow(ttk.Frame):
             ttk.Button(toolbar, text=icon, width=3,
                        command=self._on_toggle_theme).pack(side="right", padx=(0, 2))
 
-        ttk.Button(toolbar, text=i18n._("btn_language"), width=8,
-                   command=self._open_language).pack(side="right", padx=(0, 2))
+        ttk.Button(toolbar, text=i18n._("btn_app_settings"), width=3,
+                   command=self._open_settings).pack(side="right", padx=(0, 2))
+
+        if self._pending_update:
+            self._update_btn = ttk.Button(
+                toolbar,
+                text=i18n._("update_available_toolbar").format(
+                    version=self._pending_update.version),
+                command=self._install_update)
+            self._update_btn.pack(side="right", padx=(0, 4))
+        else:
+            self._update_btn = None
 
         # ── Month navigator ───────────────────────────────────────────────────
         nav = ttk.Frame(self)
@@ -388,8 +401,23 @@ class MainWindow(ttk.Frame):
     def _manage_users(self):
         UserManagementDialog(self, self._app)
 
-    def _open_language(self):
-        dlg = LanguageDialog(self)
+    def _open_settings(self):
+        dlg = SettingsDialog(self)
+        self.wait_window(dlg)
+
+    def show_update_banner(self, info) -> None:
+        """Called from Application when a notify-mode check finds an update."""
+        self._pending_update = info
+        if self._update_btn is not None:
+            return  # already shown
+        self._update_btn = ttk.Button(
+            self._toolbar,
+            text=i18n._("update_available_toolbar").format(version=info.version),
+            command=self._install_update)
+        self._update_btn.pack(side="right", padx=(0, 4))
+
+    def _install_update(self):
+        dlg = UpdateDialog(self, update_info=self._pending_update, can_skip=True)
         self.wait_window(dlg)
 
     def _pull_sync(self):

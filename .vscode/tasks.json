@@ -69,14 +69,14 @@
         "command": "powershell",
         "args": [
           "-Command",
-          "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue build/work; Remove-Item -Force -ErrorAction SilentlyContinue build/calsec.exe"
+          "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue build/work; Remove-Item -Force -ErrorAction SilentlyContinue build/calsec.exe,build/calsec.exe.sig,build/calsec-windows.zip"
         ]
       },
       "linux": {
         "command": "bash",
         "args": [
           "-c",
-          "rm -rf build/work build/calsec"
+          "rm -rf build/work build/calsec-linux build/calsec-linux.sig build/calsec-linux.zip"
         ]
       },
       "presentation": {
@@ -108,9 +108,29 @@
       }
     },
     {
+      "label": "Set version from git tag",
+      "type": "shell",
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-Command",
+          "$v = git describe --tags --abbrev=0 2>$null; if ($LASTEXITCODE -ne 0 -or -not $v) { $v = 'dev' }; $v = $v -replace '^v',''; \"VERSION = `\"$v`\"\" | Set-Content gui/version.py; Write-Host \"Version set to: $v\""
+        ]
+      },
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'); [ -z \"$v\" ] && v=dev; printf 'VERSION = \"%s\"\\n' \"$v\" > gui/version.py; echo \"Version set to: $v\""
+        ]
+      },
+      "presentation": { "reveal": "silent" }
+    },
+
+    {
       "label": "Build binary",
       "type": "shell",
-      "dependsOn": ["Clean build"],
+      "dependsOn": ["Clean build", "Set version from git tag"],
 
       "windows": {
         "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
@@ -122,7 +142,7 @@
           "--strip",
           "--optimize=2",
           "--icon", "${workspaceFolder}/assets/icon.ico",
-          "--add-data", "${workspaceFolder}/assets/icon.ico:.",
+          "--add-data", "${workspaceFolder}/assets/icon.ico;.",
           "--collect-all", "cryptography",
           "--distpath", "build",
           "--workpath", "build/work",
@@ -136,7 +156,7 @@
         "args": [
           "-m", "PyInstaller",
           "--onefile",
-          "--name", "calsec",
+          "--name", "calsec-linux",
           "--noconsole",
           "--strip",
           "--optimize=2",
@@ -164,7 +184,7 @@
         "command": "powershell",
         "args": [
           "-Command",
-          "Compress-Archive -Force -Path build/calsec.exe,assets/icon.png,assets/icon.ico,assets/install_calsec.sh,README.md -DestinationPath calsec.zip"
+          "Compress-Archive -Force -Path build/calsec.exe,assets/icon.png,assets/icon.ico,assets/install_calsec.sh,README.md -DestinationPath build/calsec-windows.zip"
         ]
       },
 
@@ -172,7 +192,7 @@
         "command": "bash",
         "args": [
           "-c",
-          "if [ -f build/README.html ]; then zip -j build/calsec.zip build/calsec assets/icon.png assets/install_calsec.sh build/README.html; else zip -j build/calsec.zip build/calsec assets/icon.png assets/install_calsec.sh README.md; fi"
+          "if [ -f build/README.html ]; then zip -j build/calsec-linux.zip build/calsec-linux assets/icon.png assets/install_calsec.sh build/README.html; else zip -j build/calsec-linux.zip build/calsec-linux assets/icon.png assets/install_calsec.sh README.md; fi"
         ]
       },
 

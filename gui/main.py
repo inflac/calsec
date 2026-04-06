@@ -11,6 +11,7 @@ import settings
 import i18n
 import theme
 import storage
+import updater
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from crypto import ecies_decrypt
 from app import CalendarApp
@@ -166,15 +167,47 @@ class Application(tk.Tk):
             if os.path.exists(icon_path):
                 icon = PhotoImage(file=icon_path)
                 self.iconphoto(True, icon)
-        self._frame         = None
-        self._logged_in_app = None
+        self._frame          = None
+        self._logged_in_app  = None
+        self._pending_update = None  # set when notify-mode check finds an update
 
         settings.load()
         i18n.load(settings.get("language"))
         theme.apply(self, settings.get("theme"))
 
+        if updater.is_frozen() and settings.get("updates_enabled"):
+            if settings.get("update_mode") == "auto":
+                self._run_auto_update_check()
+            else:
+                self._run_notify_update_check()
+
         self._start()
         _center_on_screen(self)
+
+    def _run_auto_update_check(self):
+        """Show a blocking update dialog; login proceeds only after it closes."""
+        from ui.dialogs import UpdateDialog
+        dlg = UpdateDialog(self, update_info=None, can_skip=False)
+        self.wait_window(dlg)
+
+    def _run_notify_update_check(self):
+        """Check for updates silently; store result for the toolbar banner."""
+        import threading
+
+        def _check():
+            try:
+                info = updater.check_for_update()
+            except Exception:
+                info = None
+            self.after(0, lambda: self._on_notify_check_done(info))
+
+        threading.Thread(target=_check, daemon=True).start()
+
+    def _on_notify_check_done(self, info):
+        self._pending_update = info
+        from ui.main_window import MainWindow
+        if isinstance(self._frame, MainWindow) and info:
+            self._frame.show_update_banner(info)
 
     def _start(self):
         if not storage.is_provisioned():
@@ -250,7 +283,8 @@ class Application(tk.Tk):
     def _show_main(self, app: CalendarApp):
         from ui.main_window import MainWindow
         self._logged_in_app = app
-        main_win = MainWindow(self, app, on_toggle_theme=self._toggle_theme)
+        main_win = MainWindow(self, app, on_toggle_theme=self._toggle_theme,
+                              pending_update=self._pending_update)
         self._switch_to(main_win)
         # Auto-pull after login so the user always sees the latest version
         if app.sync_config is not None:
@@ -264,7 +298,8 @@ class Application(tk.Tk):
             from ui.main_window import MainWindow
             self._switch_to(
                 MainWindow(self, self._logged_in_app,
-                           on_toggle_theme=self._toggle_theme))
+                           on_toggle_theme=self._toggle_theme,
+                           pending_update=self._pending_update))
         else:
             self._show_login()
 
