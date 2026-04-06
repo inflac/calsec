@@ -246,18 +246,14 @@ class UpdateDialog(tk.Toplevel):
         self._progress.configure(mode="determinate", value=pct)
 
     def _on_download_done(self, tmp_path):
+        import updater
         self._status_var.set(i18n._("update_restarting"))
         self._progress.configure(mode="determinate", value=100)
         self.update()
-        self.after(200, lambda: self._restart(tmp_path))
-
-    def _restart(self, tmp_path):
-        import updater
         try:
-            self.nametowidget(".").destroy()
-        except Exception:
-            pass
-        updater.apply_update(tmp_path)  # replaces process — never returns
+            updater.apply_update(tmp_path)  # spawns new process + sys.exit(0)
+        except Exception as exc:
+            self._on_error(str(exc))
 
     def _on_error(self, msg: str):
         self._status_var.set(i18n._("update_error").format(exc=msg))
