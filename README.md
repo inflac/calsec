@@ -2,14 +2,14 @@
 
 A secure, encrypted shared calendar for privacy-focused teams — built for [Tails](https://tails.net).
 
-CalSec stores your calendar data in an end-to-end encrypted file that is synchronized through a third-party WebDAV service (e.g. Nextcloud). The server never sees plaintext data. For a full description of the encryption model, see [WHITEPAPER.md](WHITEPAPER.md).
+CalSec stores your calendar data in an end-to-end encrypted file that is synchronized through a third-party WebDAV service (e.g. Nextcloud). The server never sees plaintext data. For a full description of the encryption model, see [WHITEPAPER.md](https://github.com/inflac/calsec/blob/main/WHITEPAPER.md).
 
 ## Installation
 
 > [!WARNING]
 > Only install CalSec from the official GitHub release page. Third-party copies may have been modified.
 
-Download the ZIP for your platform from the [latest release](https://github.com/inflac/calsec/releases/latest). Every release binary is signed with Ed25519 — the auto-updater verifies this automatically. For manual verification see [WHITEPAPER.md — Release Integrity](WHITEPAPER.md#release-integrity).
+Download the ZIP for your platform from the [latest release](https://github.com/inflac/calsec/releases/latest). Every release binary is signed with Ed25519 — the auto-updater verifies this automatically. For manual verification see [WHITEPAPER.md — Release Integrity](https://github.com/inflac/calsec/blob/main/WHITEPAPER.md#release-integrity).
 
 1. Unzip the downloaded file
 2. Open the extracted folder in your file browser
