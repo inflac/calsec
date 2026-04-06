@@ -38,26 +38,28 @@ class FetchCalendarDialog(tk.Toplevel):
         ttk.Label(self, text=i18n._("lbl_webdav_url")).grid(row=2, column=0, sticky="e", **pad)
         self._url = ttk.Entry(self, width=42)
         self._url.grid(row=2, column=1, sticky="w", **pad)
+        ttk.Label(self, text=i18n._("lbl_webdav_url_hint"),
+                  foreground=theme.FG_DIM).grid(row=3, column=1, sticky="w", padx=14, pady=(0, 2))
 
-        ttk.Label(self, text=i18n._("lbl_username")).grid(row=3, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_username")).grid(row=4, column=0, sticky="e", **pad)
         self._user = ttk.Entry(self, width=42)
-        self._user.grid(row=3, column=1, sticky="w", **pad)
+        self._user.grid(row=4, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text=i18n._("lbl_app_password")).grid(row=4, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_app_password")).grid(row=5, column=0, sticky="e", **pad)
         self._pw = ttk.Entry(self, show="*", width=42)
-        self._pw.grid(row=4, column=1, sticky="w", **pad)
+        self._pw.grid(row=5, column=1, sticky="w", **pad)
 
         self._status_var = tk.StringVar()
         ttk.Label(self, textvariable=self._status_var,
                   foreground=theme.RED, wraplength=400,
                   justify="center").grid(
-            row=5, column=0, columnspan=2, padx=10, pady=(6, 0))
+            row=6, column=0, columnspan=2, padx=10, pady=(6, 0))
 
         ttk.Separator(self, orient="horizontal").grid(
-            row=6, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+            row=7, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
 
         btn_frame = ttk.Frame(self)
-        btn_frame.grid(row=7, column=0, columnspan=2, pady=(0, 12))
+        btn_frame.grid(row=8, column=0, columnspan=2, pady=(0, 12))
         self._dl_btn = ttk.Button(btn_frame, text=i18n._("btn_download"),
                                    command=self._download)
         self._dl_btn.pack(side="left", padx=6)
@@ -69,7 +71,9 @@ class FetchCalendarDialog(tk.Toplevel):
         _center_dialog(self, parent)
 
     def _download(self):
-        url = self._url.get().strip()
+        url = self._url.get().strip().rstrip("/")
+        if url.endswith("/calendar.json"):
+            url = url[: -len("/calendar.json")]
         if not url:
             self._status_var.set(i18n._("err_url_required"))
             return
@@ -209,20 +213,22 @@ class ProvisionDialog(tk.Toplevel):
         ttk.Label(self, text=i18n._("lbl_webdav_url")).grid(row=9, column=0, sticky="e", **pad)
         self._nc_url = ttk.Entry(self, width=36)
         self._nc_url.grid(row=9, column=1, sticky="w", **pad)
+        ttk.Label(self, text=i18n._("lbl_webdav_url_hint"),
+                  foreground=theme.FG_DIM).grid(row=10, column=1, sticky="w", padx=14, pady=(0, 2))
 
-        ttk.Label(self, text=i18n._("lbl_username")).grid(row=10, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_username")).grid(row=11, column=0, sticky="e", **pad)
         self._nc_user = ttk.Entry(self, width=36)
-        self._nc_user.grid(row=10, column=1, sticky="w", **pad)
+        self._nc_user.grid(row=11, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text=i18n._("lbl_app_password")).grid(row=11, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_app_password")).grid(row=12, column=0, sticky="e", **pad)
         self._nc_pw = ttk.Entry(self, show="*", width=36)
-        self._nc_pw.grid(row=11, column=1, sticky="w", **pad)
+        self._nc_pw.grid(row=12, column=1, sticky="w", **pad)
 
         ttk.Separator(self, orient="horizontal").grid(
-            row=12, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+            row=13, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
 
         btn_frame = ttk.Frame(self)
-        btn_frame.grid(row=13, column=0, columnspan=2, pady=(0, 10))
+        btn_frame.grid(row=14, column=0, columnspan=2, pady=(0, 10))
         ttk.Button(btn_frame, text=i18n._("btn_generate_key"),
                    command=self._confirm).pack(side="left", padx=6)
         ttk.Button(btn_frame, text=i18n._("btn_cancel"),
@@ -268,7 +274,9 @@ class ProvisionDialog(tk.Toplevel):
             password = pw1.encode()
 
         sync_data = None
-        url = self._nc_url.get().strip()
+        url = self._nc_url.get().strip().rstrip("/")
+        if url.endswith("/calendar.json"):
+            url = url[: -len("/calendar.json")]
         if url:
             if not url.startswith(("http://", "https://")):
                 show_error(self, i18n._("err_url_invalid_title"),

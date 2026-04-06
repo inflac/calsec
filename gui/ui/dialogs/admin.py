@@ -29,14 +29,16 @@ class SyncConfigDialog(tk.Toplevel):
         ttk.Label(self, text=i18n._("lbl_webdav_url")).grid(row=1, column=0, sticky="e", **pad)
         self._url = ttk.Entry(self, width=40)
         self._url.grid(row=1, column=1, sticky="w", **pad)
+        ttk.Label(self, text=i18n._("lbl_webdav_url_hint"),
+                  foreground=theme.FG_DIM).grid(row=2, column=1, sticky="w", padx=14, pady=(0, 2))
 
-        ttk.Label(self, text=i18n._("lbl_username")).grid(row=2, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_username")).grid(row=3, column=0, sticky="e", **pad)
         self._user = ttk.Entry(self, width=40)
-        self._user.grid(row=2, column=1, sticky="w", **pad)
+        self._user.grid(row=3, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text=i18n._("lbl_app_password")).grid(row=3, column=0, sticky="e", **pad)
+        ttk.Label(self, text=i18n._("lbl_app_password")).grid(row=4, column=0, sticky="e", **pad)
         self._pw = ttk.Entry(self, show="*", width=40)
-        self._pw.grid(row=3, column=1, sticky="w", **pad)
+        self._pw.grid(row=4, column=1, sticky="w", **pad)
 
         if current_config:
             self._url.insert(0, current_config.get("webdav_url", ""))
@@ -44,10 +46,10 @@ class SyncConfigDialog(tk.Toplevel):
             self._pw.insert(0, current_config.get("password", ""))
 
         ttk.Separator(self, orient="horizontal").grid(
-            row=4, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+            row=5, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
 
         btn_frame = ttk.Frame(self)
-        btn_frame.grid(row=5, column=0, columnspan=2, pady=(0, 10))
+        btn_frame.grid(row=6, column=0, columnspan=2, pady=(0, 10))
         ttk.Button(btn_frame, text=i18n._("btn_save"), command=self._confirm).pack(side="left", padx=6)
         ttk.Button(btn_frame, text=i18n._("btn_cancel"), command=self.destroy).pack(side="left", padx=6)
 
@@ -56,7 +58,9 @@ class SyncConfigDialog(tk.Toplevel):
         _center_dialog(self, parent)
 
     def _confirm(self):
-        url = self._url.get().strip()
+        url = self._url.get().strip().rstrip("/")
+        if url.endswith("/calendar.json"):
+            url = url[: -len("/calendar.json")]
         if not url:
             self.result = {}
             self.destroy()

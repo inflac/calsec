@@ -10,6 +10,11 @@ _TOR_PROXIES = {
 }
 
 
+def _calendar_url(config: dict) -> str:
+    """Build the full calendar.json URL from the stored folder URL."""
+    return config["webdav_url"].rstrip("/") + "/calendar.json"
+
+
 def sync_push(config) -> str:
     """Upload calendar.json to a WebDAV URL via PUT. Returns a status message."""
     if config is None:
@@ -29,7 +34,7 @@ def sync_push(config) -> str:
     except Exception:
         return "Sync error: Failed to read calendar file."
 
-    url  = config["webdav_url"]
+    url  = _calendar_url(config)
     auth = (config["auth_user"], config["password"])
 
     try:
@@ -72,7 +77,7 @@ def sync_pull(config) -> tuple:
     except ImportError:
         return None, "Sync error: 'requests' library not installed."
 
-    url  = config["webdav_url"]
+    url  = _calendar_url(config)
     auth = (config["auth_user"], config["password"])
 
     try:
