@@ -4,12 +4,7 @@
     {
       "label": "Run calsec",
       "type": "shell",
-      "windows": {
-        "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
-      },
-      "linux": {
-        "command": "${workspaceFolder}/.venv/bin/python"
-      },
+      "command": "${workspaceFolder}/.venv/bin/python",
       "args": ["${workspaceFolder}/gui/main.py"],
       "group": {
         "kind": "build",
@@ -23,12 +18,7 @@
     {
       "label": "Run tests",
       "type": "shell",
-      "windows": {
-        "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
-      },
-      "linux": {
-        "command": "${workspaceFolder}/.venv/bin/python"
-      },
+      "command": "${workspaceFolder}/.venv/bin/python",
       "args": ["-m", "pytest", "tests/", "-v"],
       "group": {
         "kind": "test",
@@ -42,12 +32,7 @@
     {
       "label": "Run tests with coverage",
       "type": "shell",
-      "windows": {
-        "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
-      },
-      "linux": {
-        "command": "${workspaceFolder}/.venv/bin/python"
-      },
+      "command": "${workspaceFolder}/.venv/bin/python",
       "args": [
         "-m", "pytest",
         "tests/",
@@ -65,80 +50,46 @@
     {
       "label": "Clean build",
       "type": "shell",
-      "windows": {
-        "command": "powershell",
-        "args": [
-          "-Command",
-          "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue build/work; Remove-Item -Force -ErrorAction SilentlyContinue build/calsec.exe,build/calsec.exe.sig,build/calsec-windows.zip"
-        ]
-      },
-      "linux": {
-        "command": "bash",
-        "args": [
-          "-c",
-          "rm -rf build/work build/calsec-linux build/calsec-linux.sig build/calsec-linux.zip"
-        ]
-      },
+      "command": "bash",
+      "args": [
+        "-c",
+        "rm -rf build/work build/calsec-linux build/calsec-linux.sig build/calsec-linux.zip"
+      ],
       "presentation": {
         "reveal": "silent"
       }
     },
+
     {
       "label": "Build README (HTML)",
       "type": "shell",
-
-      "windows": {
-        "command": "powershell",
-        "args": ["-Command", "echo Skipping HTML build on Windows"]
-      },
-
-      "linux": {
-        "command": "bash",
-        "args": [
-          "-c",
-          "if command -v pandoc >/dev/null 2>&1; then pandoc README.md -o build/README.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8; else echo \"pandoc is not installed, skipping HTML-Build.\"; fi"
-        ]
-      },
-
+      "command": "bash",
+      "args": [
+        "-c",
+        "if command -v pandoc >/dev/null 2>&1; then pandoc README.md -o build/README.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8; else echo \"pandoc is not installed, skipping HTML-Build.\"; fi"
+      ],
       "presentation": { "reveal": "silent" }
     },
 
     {
       "label": "Build WHITEPAPER (HTML)",
       "type": "shell",
-
-      "windows": {
-        "command": "powershell",
-        "args": ["-Command", "echo Skipping HTML build on Windows"]
-      },
-
-      "linux": {
-        "command": "bash",
-        "args": [
-          "-c",
-          "if command -v pandoc >/dev/null 2>&1; then pandoc WHITEPAPER.md -o build/WHITEPAPER.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8; else echo \"pandoc is not installed, skipping HTML-Build.\"; fi"
-        ]
-      },
-
+      "command": "bash",
+      "args": [
+        "-c",
+        "if command -v pandoc >/dev/null 2>&1; then pandoc WHITEPAPER.md -o build/WHITEPAPER.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8; else echo \"pandoc is not installed, skipping HTML-Build.\"; fi"
+      ],
       "presentation": { "reveal": "silent" }
     },
+
     {
       "label": "Set version from git tag",
       "type": "shell",
-      "windows": {
-        "command": "powershell",
-        "args": [
-          "-Command",
-          "$v = git describe --tags --abbrev=0 2>$null; if ($LASTEXITCODE -ne 0 -or -not $v) { $v = 'dev' }; $v = $v -replace '^v',''; \"VERSION = `\"$v`\"\" | Set-Content gui/version.py; Write-Host \"Version set to: $v\""
-        ]
-      },
-      "linux": {
-        "command": "bash",
-        "args": [
-          "-c",
-          "v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'); [ -z \"$v\" ] && v=dev; printf 'VERSION = \"%s\"\\n' \"$v\" > gui/version.py; echo \"Version set to: $v\""
-        ]
-      },
+      "command": "bash",
+      "args": [
+        "-c",
+        "v=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'); [ -z \"$v\" ] && v=dev; printf 'VERSION = \"%s\"\\n' \"$v\" > gui/version.py; echo \"Version set to: $v\""
+      ],
       "presentation": { "reveal": "silent" }
     },
 
@@ -146,44 +97,21 @@
       "label": "Build binary",
       "type": "shell",
       "dependsOn": ["Clean build", "Set version from git tag"],
-
-      "windows": {
-        "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-        "args": [
-          "-m", "PyInstaller",
-          "--onefile",
-          "--name", "calsec",
-          "--noconsole",
-          "--strip",
-          "--optimize=2",
-          "--icon", "${workspaceFolder}/assets/icon.ico",
-          "--add-data", "${workspaceFolder}/assets/icon.ico;.",
-          "--collect-all", "cryptography",
-          "--distpath", "build",
-          "--workpath", "build/work",
-          "--specpath", "build/spec",
-          "gui/main.py"
-        ]
-      },
-
-      "linux": {
-        "command": "${workspaceFolder}/.venv/bin/python",
-        "args": [
-          "-m", "PyInstaller",
-          "--onefile",
-          "--name", "calsec-linux",
-          "--noconsole",
-          "--strip",
-          "--optimize=2",
-          "--add-data", "${workspaceFolder}/assets/icon.png:.",
-          "--collect-all", "cryptography",
-          "--distpath", "build",
-          "--workpath", "build/work",
-          "--specpath", "build/spec",
-          "gui/main.py"
-        ]
-      },
-
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": [
+        "-m", "PyInstaller",
+        "--onefile",
+        "--name", "calsec-linux",
+        "--noconsole",
+        "--strip",
+        "--optimize=2",
+        "--add-data", "${workspaceFolder}/assets/icon.png:.",
+        "--collect-all", "cryptography",
+        "--distpath", "build",
+        "--workpath", "build/work",
+        "--specpath", "build/spec",
+        "gui/main.py"
+      ],
       "group": "build",
       "presentation": {
         "reveal": "always"
@@ -194,23 +122,11 @@
       "label": "Build & Package",
       "type": "shell",
       "dependsOn": ["Build binary", "Build README (HTML)", "Build WHITEPAPER (HTML)"],
-
-      "windows": {
-        "command": "powershell",
-        "args": [
-          "-Command",
-          "Compress-Archive -Force -Path build/calsec.exe,assets/icon.png,assets/icon.ico,assets/install_calsec.sh,README.md,WHITEPAPER.md -DestinationPath build/calsec-windows.zip"
-        ]
-      },
-
-      "linux": {
-        "command": "bash",
-        "args": [
-          "-c",
-          "html_files=(); [ -f build/README.html ] && html_files+=(build/README.html) || html_files+=(README.md); [ -f build/WHITEPAPER.html ] && html_files+=(build/WHITEPAPER.html) || html_files+=(WHITEPAPER.md); zip -j build/calsec-linux.zip build/calsec-linux assets/icon.png assets/install_calsec.sh \"${html_files[@]}\""
-        ]
-      },
-
+      "command": "bash",
+      "args": [
+        "-c",
+        "html_files=(); [ -f build/README.html ] && html_files+=(build/README.html) || html_files+=(README.md); [ -f build/WHITEPAPER.html ] && html_files+=(build/WHITEPAPER.html) || html_files+=(WHITEPAPER.md); zip -j build/calsec-linux.zip build/calsec-linux assets/icon.png assets/install_calsec.sh \"${html_files[@]}\""
+      ],
       "group": "build",
       "presentation": {
         "reveal": "always"

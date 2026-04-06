@@ -100,7 +100,7 @@ MCowBQYDK2VwAyEAUsv9qguzU98L3EcONyrMLxDj+8GoLPS/QTzrcA8A7cA=
 -----END PUBLIC KEY-----
 ```
 
-To verify a release binary manually (linux):
+To verify a release binary manually:
 
 ```bash
 # Download the binary and its signature from the release page, then:

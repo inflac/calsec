@@ -21,8 +21,6 @@ Download the ZIP for your platform from the [latest release](https://github.com/
     ./install_calsec.sh
     ```
 
-**Windows:** When running `calsec.exe` for the first time, Windows Defender SmartScreen may show a warning ("Unknown publisher"). This appears because the binary is not signed with a commercial certificate. If you downloaded the file from the official release page, click **"More info" → "Run anyway"**. You can independently verify the binary's integrity using the Ed25519 signature included in the release — see [WHITEPAPER.md — Release Integrity](https://github.com/inflac/calsec/blob/main/WHITEPAPER.md#release-integrity).
-
 To uninstall, run the installer again and choose **"Uninstall"**. You will be asked whether to also delete your keys — they are **not** deleted by default.
 
 > [!IMPORTANT]
@@ -56,7 +54,7 @@ Every downloaded binary is verified against the Ed25519 signing key before insta
 
 ## Data Locations
 
-```
+```text
 /live/persistence/TailsData_unlocked/
 └── programs/calsec/
     ├── calsec              # binary

@@ -36,7 +36,7 @@ body:
       label: Environment
       description: What environment are you using?
       placeholder: |
-        - Operating System: [e.g. Windows 10, Ubuntu 20.04]
+        - Operating System: [e.g. Tails 6.x, Ubuntu 24.04]
         - Python Version: [e.g. 3.9.7]
         - CalSec Version: [e.g. 1.0.0]
     validations:

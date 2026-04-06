@@ -108,22 +108,6 @@ class LoginFrame(ttk.Frame):
         self._on_login(app)
 
 
-def _patch_toplevel_icon(icon_path: str) -> None:
-    if not icon_path.endswith(".ico"):
-        return  # nur Windows
-
-    _orig_init = tk.Toplevel.__init__
-
-    def _patched_init(self, *args, **kwargs):
-        _orig_init(self, *args, **kwargs)
-        try:
-            self.iconbitmap(icon_path)
-        except Exception:
-            pass
-
-    tk.Toplevel.__init__ = _patched_init
-
-
 def _patch_toplevel_minsize() -> None:
     """Ensure all Toplevel windows have a readable minimum size."""
     _orig_init = tk.Toplevel.__init__
@@ -156,17 +140,10 @@ class Application(tk.Tk):
         _patch_toplevel_minsize()
         _base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-        if sys.platform.startswith("win"):
-            icon_path = os.path.join(_base, "icon.ico")
-            if os.path.exists(icon_path):
-                self.iconbitmap(icon_path)
-                _patch_toplevel_icon(icon_path)
-
-        else:
-            icon_path = os.path.join(_base, "icon.png")
-            if os.path.exists(icon_path):
-                icon = PhotoImage(file=icon_path)
-                self.iconphoto(True, icon)
+        icon_path = os.path.join(_base, "icon.png")
+        if os.path.exists(icon_path):
+            icon = PhotoImage(file=icon_path)
+            self.iconphoto(True, icon)
         self._frame          = None
         self._logged_in_app  = None
         self._pending_update = None  # set when notify-mode check finds an update

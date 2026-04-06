@@ -54,12 +54,7 @@ def test_asset_name_linux(monkeypatch):
     assert updater._asset_name() == "calsec-linux"
 
 
-def test_asset_name_windows(monkeypatch):
-    monkeypatch.setattr(sys, "platform", "win32")
-    assert updater._asset_name() == "calsec.exe"
-
-
-def test_asset_name_unknown_returns_empty(monkeypatch):
+def test_asset_name_non_linux_returns_empty(monkeypatch):
     monkeypatch.setattr(sys, "platform", "freebsd")
     assert updater._asset_name() == ""
 

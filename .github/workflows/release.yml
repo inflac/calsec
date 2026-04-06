@@ -14,7 +14,6 @@ env:
 
 jobs:
 
-  # ── Linux binary ─────────────────────────────────────────────────────────────
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -79,66 +78,3 @@ jobs:
             build/calsec-linux
             build/calsec-linux.sig
             build/calsec-linux.zip
-
-  # ── Windows binary ────────────────────────────────────────────────────────────
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Install pandoc
-        run: choco install pandoc -y
-
-      - name: Build HTML docs
-        run: |
-          New-Item -ItemType Directory -Force -Path build | Out-Null
-          pandoc README.md -o build/README.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata title="CalSec" --metadata charset=UTF-8
-          pandoc WHITEPAPER.md -o build/WHITEPAPER.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata title="CalSec — Whitepaper" --metadata charset=UTF-8
-
-      - name: Set version from tag
-        run: |
-          $v = "${{ github.ref_name }}" -replace '^v', ''
-          "VERSION = `"$v`"" | Set-Content gui/version.py
-          Write-Host "Building version $v"
-
-      - name: Build Windows binary
-        run: |
-          python -m PyInstaller `
-            --onefile `
-            --name calsec `
-            --noconsole `
-            --strip `
-            --optimize=2 `
-            --icon "$((Get-Location).Path)\assets\icon.ico" `
-            "--add-data=$((Get-Location).Path)\assets\icon.ico;." `
-            --collect-all cryptography `
-            --distpath build `
-            --workpath build/work `
-            --specpath build/spec `
-            gui/main.py
-
-      - name: Sign binary
-        env:
-          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
-        run: python scripts/sign_release.py build/calsec.exe
-
-      - name: Package Windows zip
-        run: |
-          Compress-Archive -Force `
-            -Path build/calsec.exe,build/calsec.exe.sig,assets/icon.png,assets/icon.ico,assets/install_calsec.sh,build/README.html,build/WHITEPAPER.html `
-            -DestinationPath build/calsec-windows.zip
-
-      - name: Upload to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            build/calsec.exe
-            build/calsec.exe.sig
-            build/calsec-windows.zip

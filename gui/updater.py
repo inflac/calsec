@@ -21,12 +21,7 @@ from typing import Callable, Optional
 
 OFFICIAL_CHANNEL = "https://api.github.com/repos/inflac/calsec/releases/latest"
 
-# Expected asset filenames per platform
-_ASSET_NAMES = {
-    "win32":  "calsec.exe",
-    "linux":  "calsec-linux",
-    "darwin": "calsec-macos",
-}
+_ASSET_NAME = "calsec-linux"
 
 # Ed25519 public key used to verify release binaries.
 # Generate with: python scripts/gen_signing_key.py
@@ -76,10 +71,7 @@ def _channel_url() -> str:
 
 
 def _asset_name() -> str:
-    for prefix, name in _ASSET_NAMES.items():
-        if sys.platform.startswith(prefix):
-            return name
-    return ""
+    return _ASSET_NAME if sys.platform.startswith("linux") else ""
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────
@@ -133,8 +125,7 @@ def download_update(
     Raises ValueError if signature verification fails.
     Cleans up the temp file and re-raises on any error.
     """
-    suffix = ".exe" if sys.platform.startswith("win32") else ""
-    fd, tmp = tempfile.mkstemp(suffix=f".new{suffix}", prefix="calsec_upd_")
+    fd, tmp = tempfile.mkstemp(suffix=".new", prefix="calsec_upd_")
     os.close(fd)
 
     try:
@@ -216,29 +207,18 @@ def apply_update(new_binary: Path) -> None:
     """
     Replace the running binary with *new_binary* and restart the process.
 
-    On Linux/macOS: atomic os.replace() + os.execv() (never returns).
-    On Windows: launches a detached batch script that waits for this process
-                to exit, copies the new binary, then restarts — then exits.
+    Uses atomic os.replace() + os.execv() (never returns).
+    Falls back to copy+delete when tmp and exe live on different filesystems
+    (EXDEV — common on Tails where /tmp is tmpfs).
     """
-    exe = Path(sys.executable)
-    if sys.platform.startswith("win32"):
-        _apply_windows(exe, new_binary)
-    else:
-        _apply_unix(exe, new_binary)
-
-
-# ── Platform-specific replace logic ───────────────────────────────────────────
-
-def _apply_unix(exe: Path, new_binary: Path) -> None:
     import errno
     import shutil
 
-    # Ensure executable bit is set on the downloaded binary
+    exe = Path(sys.executable)
+
     mode = os.stat(new_binary).st_mode
     os.chmod(new_binary, mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
-    # Prefer atomic rename; fall back to copy+delete when tmp and exe live on
-    # different filesystems (EXDEV — common on Tails where /tmp is tmpfs).
     try:
         os.replace(new_binary, exe)
     except OSError as exc:
@@ -247,35 +227,4 @@ def _apply_unix(exe: Path, new_binary: Path) -> None:
         shutil.copy2(new_binary, exe)
         os.unlink(new_binary)
 
-    # Re-exec: load new binary in place of this process
     os.execv(str(exe), sys.argv)
-
-
-def _apply_windows(exe: Path, new_binary: Path) -> None:
-    import subprocess
-
-    fd, bat = tempfile.mkstemp(suffix=".bat", prefix="calsec_upd_")
-    os.close(fd)
-
-    # The batch script runs after this process exits:
-    #  1. Short delay to ensure the process is gone
-    #  2. Copy new binary over old path
-    #  3. Delete temp binary and self-delete the script
-    #  4. Restart the updated binary
-    script = (
-        "@echo off\n"
-        "ping -n 4 127.0.0.1 >NUL\n"
-        f'copy /Y "{new_binary}" "{exe}"\n'
-        f'del "{new_binary}"\n'
-        f'start "" "{exe}"\n'
-        'del "%~f0"\n'
-    )
-    with open(bat, "w") as f:
-        f.write(script)
-
-    subprocess.Popen(
-        ["cmd.exe", "/C", bat],
-        creationflags=subprocess.CREATE_NO_WINDOW,
-        close_fds=True,
-    )
-    sys.exit(0)
