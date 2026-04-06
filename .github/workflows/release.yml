@@ -16,18 +16,19 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-latest
+    container: debian:12
     steps:
+      - name: Install system dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y git python3 python3-pip python3-tk python3-venv pandoc zip
+
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install system dependencies
-        run: sudo apt-get install -y python3-tk pandoc
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install Python dependencies
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install -r requirements.txt
 
       - name: Set version from tag
         run: |
@@ -43,7 +44,7 @@ jobs:
 
       - name: Build Linux binary
         run: |
-          python -m PyInstaller \
+          .venv/bin/python -m PyInstaller \
             --onefile \
             --name calsec-linux \
             --noconsole \
@@ -59,7 +60,7 @@ jobs:
       - name: Sign binary
         env:
           RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
-        run: python scripts/sign_release.py build/calsec-linux
+        run: .venv/bin/python scripts/sign_release.py build/calsec-linux
 
       - name: Package Linux zip
         run: |
