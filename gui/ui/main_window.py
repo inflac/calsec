@@ -9,6 +9,7 @@ from tkinter import ttk
 import i18n
 import settings
 import theme
+from updater import current_version
 from ui.dialogs import (AddEntryDialog, ViewEntryDialog,
                         SyncConfigDialog, UserManagementDialog,
                         SettingsDialog, UpdateDialog,
@@ -141,11 +142,20 @@ class MainWindow(ttk.Frame):
         self._tree.bind("<Double-1>",        self._on_double_click)
         self._tree.bind("<<TreeviewSelect>>", self._on_selection_change)
 
-        # ── Status bar ────────────────────────────────────────────────────────
+        # ── Bottom bar ────────────────────────────────────────────────────────
+        bottom_frame = ttk.Frame(self)
+        bottom_frame.pack(side="bottom", fill="x")
+
         self._status_var = tk.StringVar()
-        self._status_label = tk.Label(self, textvariable=self._status_var,
+        self._status_label = tk.Label(bottom_frame, textvariable=self._status_var,
                   relief="sunken", anchor="w", bg=theme.BG, fg=theme.FG)
-        self._status_label.pack(side="bottom", fill="x")
+        self._status_label.pack(side="left", fill="x", expand=True)
+
+        self._app_version_var = tk.StringVar()
+        self._app_version_label = tk.Label(bottom_frame, textvariable=self._app_version_var,
+                  relief="sunken", anchor="e", bg=theme.BG, fg=theme.FG)
+        self._app_version_label.pack(side="right")
+        self._app_version_var.set(f"v{current_version()}")
 
     # ── Month navigation ──────────────────────────────────────────────────────
 
