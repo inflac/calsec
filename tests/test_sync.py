@@ -1,4 +1,5 @@
-import os
+import json
+import sys
 import types
 import pytest
 
@@ -6,15 +7,10 @@ import gui.sync as sync_module
 
 
 class _Dummy(Exception):
-    """Platzhalter-Exception für Typen, die im jeweiligen Test nicht ausgelöst werden."""
+    pass
 
 
 def _exc_ns(**overrides):
-    """
-    Baut einen SimpleNamespace mit allen vier Exception-Typen die sync.py referenziert.
-    sync.py evaluiert alle except-Klauseln der Reihe nach — fehlt ein Attribut,
-    gibt es einen AttributeError noch bevor der passende Handler gefunden wird.
-    """
     base = {
         "MissingSchema":   _Dummy,
         "SSLError":        _Dummy,
@@ -25,184 +21,221 @@ def _exc_ns(**overrides):
     return types.SimpleNamespace(**base)
 
 
-# ---------- Helpers ----------
+def _make_config(url="https://example.com/dav"):
+    return {"webdav_url": url, "auth_user": "user", "password": "pw"}
+
 
 @pytest.fixture
-def temp_file(tmp_path, monkeypatch):
-    """
-    Erzeugt eine temporäre calendar.json
-    """
-    data_file = tmp_path / "calendar.json"
-    data_file.write_text('{"test": 1}')
-
-    monkeypatch.setattr(sync_module, "DATA_FILE", str(data_file))
-    return data_file
+def calendar_file(tmp_path, monkeypatch):
+    f = tmp_path / "calendar.json"
+    f.write_text(json.dumps({"version": 4, "entries": []}))
+    monkeypatch.setattr(sync_module, "DATA_FILE", str(f))
+    return f
 
 
-def make_config():
-    return {
-        "url": "https://example.com",
-        "user": "user",
-        "password": "pw",
-        "remote_path": "/file.json"
-    }
-
-
-# ---------- basic ----------
-
-def test_sync_no_config():
-    assert sync_module.sync(None) is None
-
-
-def test_sync_requests_missing(monkeypatch, temp_file):
-    monkeypatch.setitem(__import__("sys").modules, "requests", None)
-
-    result = sync_module.sync(make_config())
-
-    assert "not installed" in result
-
-# ---------- file handling ----------
-
-def test_sync_file_missing(monkeypatch):
-    monkeypatch.setattr(sync_module, "DATA_FILE", "/nonexistent/file.json")
-
-    result = sync_module.sync(make_config())
-
-    assert "not found" in result
-
-
-def test_sync_file_read_error(monkeypatch, temp_file):
-    def fail(*args, **kwargs):
-        raise OSError
-
-    monkeypatch.setattr("builtins.open", fail)
-
-    result = sync_module.sync(make_config())
-
-    assert "Failed to read" in result
-
-
-# ---------- request success ----------
-
-def test_sync_success(monkeypatch, temp_file):
+def _fake_put(status=200):
     class FakeResponse:
-        status_code = 200
-
-    def fake_put(*args, **kwargs):
-        return FakeResponse()
-
-    fake_requests = types.SimpleNamespace(
-        put=fake_put,
-        exceptions=types.SimpleNamespace()
+        status_code = status
+    return types.SimpleNamespace(
+        put=lambda *a, **kw: FakeResponse(),
+        exceptions=_exc_ns(),
     )
 
-    monkeypatch.setitem(__import__("sys").modules, "requests", fake_requests)
 
-    result = sync_module.sync(make_config())
+def _fake_get(status=200, body=None):
+    class FakeResponse:
+        status_code = status
+        content = json.dumps(body or {}).encode()
+        text    = json.dumps(body or {})
+        headers = {"Content-Type": "application/json"}
+    return types.SimpleNamespace(
+        get=lambda *a, **kw: FakeResponse(),
+        exceptions=_exc_ns(),
+    )
 
-    assert "Synced to" in result
+
+# ── _calendar_url ─────────────────────────────────────────────────────────────
+
+def test_calendar_url_appends_filename():
+    assert sync_module._calendar_url(_make_config("https://cloud.example.com/dav/folder")) \
+        == "https://cloud.example.com/dav/folder/calendar.json"
 
 
-# ---------- HTTP status handling ----------
+def test_calendar_url_strips_trailing_slash():
+    assert sync_module._calendar_url(_make_config("https://cloud.example.com/dav/folder/")) \
+        == "https://cloud.example.com/dav/folder/calendar.json"
+
+
+# ── sync_push ─────────────────────────────────────────────────────────────────
+
+def test_push_none_config_returns_none():
+    assert sync_module.sync_push(None) is None
+
+
+def test_push_requests_not_installed(monkeypatch, calendar_file):
+    monkeypatch.setitem(sys.modules, "requests", None)
+    assert "not installed" in sync_module.sync_push(_make_config())
+
+
+def test_push_missing_file(monkeypatch):
+    monkeypatch.setattr(sync_module, "DATA_FILE", "/nonexistent/calendar.json")
+    assert "not found" in sync_module.sync_push(_make_config())
+
+
+def test_push_file_read_error(monkeypatch, calendar_file):
+    original_open = open
+    def fail_open(path, mode="r", **kw):
+        if "rb" in mode and str(calendar_file) in str(path):
+            raise OSError("read failed")
+        return original_open(path, mode, **kw)
+    monkeypatch.setattr("builtins.open", fail_open)
+    assert "Failed to read" in sync_module.sync_push(_make_config())
+
+
+def test_push_success(monkeypatch, calendar_file):
+    monkeypatch.setitem(sys.modules, "requests", _fake_put(201))
+    assert "201" in sync_module.sync_push(_make_config())
+
+
+def test_push_success_204(monkeypatch, calendar_file):
+    monkeypatch.setitem(sys.modules, "requests", _fake_put(204))
+    assert "204" in sync_module.sync_push(_make_config())
+
 
 @pytest.mark.parametrize("code,msg", [
     (401, "Authentication failed"),
     (403, "Access denied"),
-    (404, "Remote directory"),
+    (404, "does not exist"),
     (500, "Unexpected response"),
 ])
-def test_sync_http_errors(monkeypatch, temp_file, code, msg):
+def test_push_http_errors(monkeypatch, calendar_file, code, msg):
+    monkeypatch.setitem(sys.modules, "requests", _fake_put(code))
+    assert msg in sync_module.sync_push(_make_config())
+
+
+def _push_exc(exc_cls, exc_name):
+    def fake_put(*a, **kw):
+        raise exc_cls()
+    return types.SimpleNamespace(
+        put=fake_put,
+        exceptions=_exc_ns(**{exc_name: exc_cls}),
+    )
+
+
+def test_push_ssl_error(monkeypatch, calendar_file):
+    class SSLError(Exception): pass
+    monkeypatch.setitem(sys.modules, "requests", _push_exc(SSLError, "SSLError"))
+    assert "SSL" in sync_module.sync_push(_make_config())
+
+
+def test_push_connection_error(monkeypatch, calendar_file):
+    class ConnectionError(Exception): pass
+    monkeypatch.setitem(sys.modules, "requests", _push_exc(ConnectionError, "ConnectionError"))
+    assert "connect" in sync_module.sync_push(_make_config())
+
+
+def test_push_timeout(monkeypatch, calendar_file):
+    class Timeout(Exception): pass
+    monkeypatch.setitem(sys.modules, "requests", _push_exc(Timeout, "Timeout"))
+    assert "timed out" in sync_module.sync_push(_make_config())
+
+
+def test_push_missing_schema(monkeypatch, calendar_file):
+    class MissingSchema(Exception): pass
+    monkeypatch.setitem(sys.modules, "requests", _push_exc(MissingSchema, "MissingSchema"))
+    assert "Ungültige URL" in sync_module.sync_push(_make_config())
+
+
+# ── sync_pull ─────────────────────────────────────────────────────────────────
+
+def test_pull_none_config_returns_none():
+    data, _ = sync_module.sync_pull(None)
+    assert data is None
+
+
+def test_pull_requests_not_installed(monkeypatch):
+    monkeypatch.setitem(sys.modules, "requests", None)
+    data, msg = sync_module.sync_pull(_make_config())
+    assert data is None
+    assert "not installed" in msg
+
+
+def test_pull_success(monkeypatch):
+    payload = {"version": 4, "entries": [], "users": {}}
+    monkeypatch.setitem(sys.modules, "requests", _fake_get(200, payload))
+    data, msg = sync_module.sync_pull(_make_config())
+    assert data == payload
+
+
+def test_pull_404(monkeypatch):
+    monkeypatch.setitem(sys.modules, "requests", _fake_get(404))
+    data, msg = sync_module.sync_pull(_make_config())
+    assert data is None
+
+
+def test_pull_401(monkeypatch):
+    monkeypatch.setitem(sys.modules, "requests", _fake_get(401))
+    data, msg = sync_module.sync_pull(_make_config())
+    assert data is None
+    assert "Authentication" in msg
+
+
+def test_pull_unexpected_status(monkeypatch):
+    monkeypatch.setitem(sys.modules, "requests", _fake_get(500))
+    data, msg = sync_module.sync_pull(_make_config())
+    assert data is None
+    assert "Unexpected" in msg
+
+
+def test_pull_invalid_json(monkeypatch):
     class FakeResponse:
-        status_code = code
+        status_code = 200
+        content = b"<html>not json</html>"
+        text    = "<html>not json</html>"
+        headers = {"Content-Type": "text/html"}
+    monkeypatch.setitem(sys.modules, "requests", types.SimpleNamespace(
+        get=lambda *a, **kw: FakeResponse(), exceptions=_exc_ns()))
+    data, msg = sync_module.sync_pull(_make_config())
+    assert data is None
+    assert "JSON" in msg
 
-    def fake_put(*args, **kwargs):
-        return FakeResponse()
 
-    fake_requests = types.SimpleNamespace(
-        put=fake_put,
-        exceptions=types.SimpleNamespace()
+def _pull_exc(exc_cls, exc_name):
+    def fake_get(*a, **kw):
+        raise exc_cls()
+    return types.SimpleNamespace(
+        get=fake_get,
+        exceptions=_exc_ns(**{exc_name: exc_cls}),
     )
 
-    monkeypatch.setitem(__import__("sys").modules, "requests", fake_requests)
 
-    result = sync_module.sync(make_config())
-
-    assert msg in result
-
-
-# ---------- exceptions ----------
-
-def test_sync_invalid_url(monkeypatch, temp_file):
-    class MissingSchema(Exception):
-        pass
-
-    def fake_put(*args, **kwargs):
-        raise MissingSchema()
-
-    fake_requests = types.SimpleNamespace(
-        put=fake_put,
-        exceptions=_exc_ns(MissingSchema=MissingSchema),
-    )
-
-    monkeypatch.setitem(__import__("sys").modules, "requests", fake_requests)
-
-    result = sync_module.sync(make_config())
-
-    assert "Ungültige URL" in result
+def test_pull_connection_error(monkeypatch):
+    class ConnectionError(Exception): pass
+    monkeypatch.setitem(sys.modules, "requests", _pull_exc(ConnectionError, "ConnectionError"))
+    data, msg = sync_module.sync_pull(_make_config())
+    assert data is None
+    assert "connect" in msg
 
 
-def test_sync_ssl_error(monkeypatch, temp_file):
-    class SSLError(Exception):
-        pass
-
-    def fake_put(*args, **kwargs):
-        raise SSLError()
-
-    fake_requests = types.SimpleNamespace(
-        put=fake_put,
-        exceptions=_exc_ns(SSLError=SSLError),
-    )
-
-    monkeypatch.setitem(__import__("sys").modules, "requests", fake_requests)
-
-    result = sync_module.sync(make_config())
-
-    assert "SSL certificate" in result
+def test_pull_ssl_error(monkeypatch):
+    class SSLError(Exception): pass
+    monkeypatch.setitem(sys.modules, "requests", _pull_exc(SSLError, "SSLError"))
+    data, msg = sync_module.sync_pull(_make_config())
+    assert data is None
+    assert "SSL" in msg
 
 
-def test_sync_connection_error(monkeypatch, temp_file):
-    class ConnectionError(Exception):
-        pass
-
-    def fake_put(*args, **kwargs):
-        raise ConnectionError()
-
-    fake_requests = types.SimpleNamespace(
-        put=fake_put,
-        exceptions=_exc_ns(ConnectionError=ConnectionError),
-    )
-
-    monkeypatch.setitem(__import__("sys").modules, "requests", fake_requests)
-
-    result = sync_module.sync(make_config())
-
-    assert "Could not connect" in result
+def test_pull_timeout(monkeypatch):
+    class Timeout(Exception): pass
+    monkeypatch.setitem(sys.modules, "requests", _pull_exc(Timeout, "Timeout"))
+    data, msg = sync_module.sync_pull(_make_config())
+    assert data is None
+    assert "timed out" in msg
 
 
-def test_sync_timeout(monkeypatch, temp_file):
-    class Timeout(Exception):
-        pass
-
-    def fake_put(*args, **kwargs):
-        raise Timeout()
-
-    fake_requests = types.SimpleNamespace(
-        put=fake_put,
-        exceptions=_exc_ns(Timeout=Timeout),
-    )
-
-    monkeypatch.setitem(__import__("sys").modules, "requests", fake_requests)
-
-    result = sync_module.sync(make_config())
-
-    assert "timed out" in result
+def test_pull_missing_schema(monkeypatch):
+    class MissingSchema(Exception): pass
+    monkeypatch.setitem(sys.modules, "requests", _pull_exc(MissingSchema, "MissingSchema"))
+    data, msg = sync_module.sync_pull(_make_config())
+    assert data is None
+    assert "Ungültige URL" in msg

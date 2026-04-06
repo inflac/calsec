@@ -28,7 +28,7 @@ First off, thanks for taking the time to contribute!
 pytest tests/ -v
 
 # Run with coverage report
-pytest tests/ -v --cov=gui --cov-report=term-missing
+pytest tests/ -v --cov=gui --cov-report=term-missing --cov-report=html:build/coverage_html
 ```
 
 VS Code tasks for both are available under **Terminal → Run Task**.

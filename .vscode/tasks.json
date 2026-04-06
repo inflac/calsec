@@ -54,7 +54,7 @@
         "-v",
         "--cov=gui",
         "--cov-report=term-missing",
-        "--cov-report=html:coverage_html"
+        "--cov-report=html:build/coverage_html"
       ],
       "group": "test",
       "presentation": {

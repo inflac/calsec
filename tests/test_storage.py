@@ -1,185 +1,203 @@
 import json
 import os
 import pytest
-from unittest import mock
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
 
 import gui.storage as storage
 
 
-# ---------- Helpers ----------
-
-@pytest.fixture
-def temp_base(tmp_path, monkeypatch):
-    """
-    Isoliert BASE_DIR auf ein temporäres Verzeichnis,
-    damit keine echten Dateien angefasst werden.
-    """
-    monkeypatch.setattr(storage, "BASE_DIR", str(tmp_path))
-
-    # Dateien neu definieren
-    storage.DATA_FILE = os.path.join(tmp_path, "calendar.json")
-    storage.KEY_PRIVATE = os.path.join(tmp_path, "calsec_private.pem")
-    storage.KEY_PUBLIC = os.path.join(tmp_path, "calsec_public.pem")
-
-    return tmp_path
+@pytest.fixture(autouse=True)
+def isolate(tmp_path, monkeypatch):
+    monkeypatch.setattr(storage, "BASE_DIR",  str(tmp_path))
+    monkeypatch.setattr(storage, "KEYS_DIR",  str(tmp_path / "keys"))
+    monkeypatch.setattr(storage, "DATA_FILE", str(tmp_path / "calendar.json"))
 
 
-# ---------- keys_exist ----------
+# ── email_to_hash ─────────────────────────────────────────────────────────────
 
-def test_keys_exist_false(temp_base):
-    assert storage.keys_exist() is False
-
-
-def test_keys_exist_true(temp_base):
-    open(storage.KEY_PRIVATE, "w").close()
-    open(storage.KEY_PUBLIC, "w").close()
-
-    assert storage.keys_exist() is True
+def test_email_to_hash_length():
+    assert len(storage.email_to_hash("alice@example.com")) == 16
 
 
-# ---------- load_file ----------
-
-def test_load_file_empty(temp_base):
-    entries, sync, version, sig = storage.load_file()
-
-    assert entries == []
-    assert sync is None
-    assert version == 0
-    assert sig is None
+def test_email_to_hash_uses_localpart_only():
+    h1 = storage.email_to_hash("alice@example.com")
+    h2 = storage.email_to_hash("alice@other.org")
+    assert h1 == h2
 
 
-def test_load_file_valid(temp_base):
-    data = {
-        "entries": [{"id": "1"}],
-        "sync_config": {"foo": "bar"},
-        "version": 5,
-        "signature": "sig"
-    }
+def test_email_to_hash_case_insensitive():
+    assert storage.email_to_hash("Alice@example.com") == storage.email_to_hash("alice@example.com")
 
+
+def test_email_to_hash_different_users():
+    assert storage.email_to_hash("alice@x.com") != storage.email_to_hash("bob@x.com")
+
+
+# ── find_user_key_hashes ──────────────────────────────────────────────────────
+
+def test_find_user_key_hashes_empty_when_no_dir():
+    assert storage.find_user_key_hashes() == []
+
+
+def test_find_user_key_hashes_returns_pem_stems(tmp_path, monkeypatch):
+    keys_dir = tmp_path / "keys"
+    keys_dir.mkdir()
+    monkeypatch.setattr(storage, "KEYS_DIR", str(keys_dir))
+    (keys_dir / "abcd1234abcd1234.pem").write_text("key")
+    (keys_dir / "ignored.txt").write_text("not a key")
+    result = storage.find_user_key_hashes()
+    assert result == ["abcd1234abcd1234"]
+
+
+# ── load_file_raw ─────────────────────────────────────────────────────────────
+
+def test_load_file_raw_returns_empty_when_missing():
+    assert storage.load_file_raw() == {}
+
+
+def test_load_file_raw_returns_dict():
+    data = {"version": 4, "entries": []}
     with open(storage.DATA_FILE, "w") as f:
         json.dump(data, f)
-
-    entries, sync, version, sig = storage.load_file()
-
-    assert entries == [{"id": "1"}]
-    assert sync == {"foo": "bar"}
-    assert version == 5
-    assert sig == "sig"
+    result = storage.load_file_raw()
+    assert result["version"] == 4
+    assert result["entries"] == []
 
 
-def test_load_file_invalid(temp_base):
+def test_load_file_raw_raises_on_invalid_json():
     with open(storage.DATA_FILE, "w") as f:
-        f.write("not json")
-
+        f.write("not json{{{")
     with pytest.raises(RuntimeError):
-        storage.load_file()
+        storage.load_file_raw()
 
 
-# ---------- save_file ----------
+# ── save_file ─────────────────────────────────────────────────────────────────
 
-def test_save_and_load_roundtrip(temp_base):
-    entries = [{"id": "1"}]
-
-    storage.save_file(entries, sync_config_enc="sync", version=1, signature="sig")
-
-    assert os.path.exists(storage.DATA_FILE)
-
+def test_save_file_writes_json():
+    data = {"version": 4, "entries": [], "users": {}}
+    storage.save_file(data)
     with open(storage.DATA_FILE) as f:
-        data = json.load(f)
-
-    assert data["entries"] == entries
-    assert data["version"] == 1
-    assert data["sync_config"] == "sync"
-    assert data["signature"] == "sig"
+        loaded = json.load(f)
+    assert loaded == data
 
 
-def test_save_file_failure(temp_base, monkeypatch):
-    def fail(*args, **kwargs):
-        raise OSError("fail")
-
-    monkeypatch.setattr("builtins.open", fail)
-
-    with pytest.raises(RuntimeError):
-        storage.save_file([], None, 0, None)
+def test_save_and_load_roundtrip():
+    data = {"version": 4, "entries": [{"id": "1"}], "sig_users": "abc"}
+    storage.save_file(data)
+    assert storage.load_file_raw() == data
 
 
-# ---------- load_private_key ----------
+def test_save_file_raises_on_write_failure(monkeypatch):
+    monkeypatch.setattr(storage, "DATA_FILE", "/nonexistent/dir/calendar.json")
+    with pytest.raises(RuntimeError, match="Failed to write"):
+        storage.save_file({"version": 4})
 
-def test_load_private_key_missing(temp_base):
-    with pytest.raises(FileNotFoundError):
-        storage.load_private_key(b"pw")
+
+# ── is_provisioned ────────────────────────────────────────────────────────────
+
+def test_is_provisioned_false_when_no_file():
+    assert storage.is_provisioned() is False
 
 
-def test_load_private_key_invalid(temp_base):
-    with open(storage.KEY_PRIVATE, "w") as f:
-        f.write("invalid key")
+def test_is_provisioned_false_when_no_users():
+    storage.save_file({"version": 4, "users": {}})
+    assert storage.is_provisioned() is False
 
+
+def test_is_provisioned_true_when_users_present():
+    storage.save_file({"version": 4, "users": {"abc": {"role": "admin"}}})
+    assert storage.is_provisioned() is True
+
+
+# ── save_user_key_file / load_user_private_key ────────────────────────────────
+
+def _generate_pem_key(password: bytes | None = None):
+    kpriv = ec.generate_private_key(ec.SECP256R1())
+    return kpriv
+
+
+def test_save_and_load_user_key_no_password(tmp_path, monkeypatch):
+    keys_dir = tmp_path / "keys"
+    monkeypatch.setattr(storage, "KEYS_DIR", str(keys_dir))
+    kpriv = _generate_pem_key()
+    storage.save_user_key_file("testhash1234abcd", kpriv, None)
+    loaded = storage.load_user_private_key("testhash1234abcd", None)
+    assert loaded.private_numbers() == kpriv.private_numbers()
+
+
+def test_save_and_load_user_key_with_password(tmp_path, monkeypatch):
+    keys_dir = tmp_path / "keys"
+    monkeypatch.setattr(storage, "KEYS_DIR", str(keys_dir))
+    kpriv    = _generate_pem_key()
+    pw       = b"s3cr3tpassword"
+    storage.save_user_key_file("testhash1234abcd", kpriv, pw)
+    loaded = storage.load_user_private_key("testhash1234abcd", pw)
+    assert loaded.private_numbers() == kpriv.private_numbers()
+
+
+def test_load_user_private_key_wrong_password(tmp_path, monkeypatch):
+    keys_dir = tmp_path / "keys"
+    monkeypatch.setattr(storage, "KEYS_DIR", str(keys_dir))
+    storage.save_user_key_file("testhash1234abcd", _generate_pem_key(), b"correct")
     with pytest.raises(ValueError):
-        storage.load_private_key(b"pw")
+        storage.load_user_private_key("testhash1234abcd", b"wrong")
 
 
-# ---------- load_public_key ----------
-
-def test_load_public_key_missing(temp_base):
+def test_load_user_private_key_missing(tmp_path, monkeypatch):
+    keys_dir = tmp_path / "keys"
+    keys_dir.mkdir()
+    monkeypatch.setattr(storage, "KEYS_DIR", str(keys_dir))
     with pytest.raises(FileNotFoundError):
-        storage.load_public_key()
+        storage.load_user_private_key("nonexistent", None)
 
 
-def test_load_public_key_invalid(temp_base):
-    with open(storage.KEY_PUBLIC, "w") as f:
-        f.write("invalid key")
+# ── provision ─────────────────────────────────────────────────────────────────
 
-    with pytest.raises(RuntimeError):
-        storage.load_public_key()
-
-
-# ---------- provision ----------
-
-def test_provision_creates_files(temp_base, monkeypatch):
-    password = b"testpass"
-
-    # crypto mocken (wichtig → keine echte Kryptographie nötig)
-    monkeypatch.setattr(storage, "encrypt_entry", lambda e, p: "enc")
-    monkeypatch.setattr(storage, "sign_file", lambda *args, **kwargs: "sig")
-
-    # load_file mocken → keine vorhandene Datei nötig
-    monkeypatch.setattr(storage, "load_file", lambda: ([], None, 0, None))
-
-    sync_data = {
-        "url": "http://test",
-        "user": "user",
-        "password": "pw",
-        "remote_path": "/path"
-    }
-
-    storage.provision(password, sync_data)
-
-    assert os.path.exists(storage.KEY_PRIVATE)
-    assert os.path.exists(storage.KEY_PUBLIC)
+def test_provision_creates_calendar_file():
+    storage.provision("admin@example.com", b"password123", None)
     assert os.path.exists(storage.DATA_FILE)
 
 
-def test_provision_without_sync(temp_base, monkeypatch):
-    password = b"testpass"
+def test_provision_calendar_structure():
+    storage.provision("admin@example.com", b"password123", None)
+    data = storage.load_file_raw()
+    assert data["version"] == 4
+    assert "sign_keys" in data
+    assert "users" in data
+    assert "entries" in data
+    assert "sig_users" in data
+    assert "sig_entries" in data
 
-    monkeypatch.setattr(storage, "encrypt_entry", lambda e, p: "enc")
-    monkeypatch.setattr(storage, "sign_file", lambda *args, **kwargs: "sig")
-    monkeypatch.setattr(storage, "load_file", lambda: ([], None, 0, None))
 
-    storage.provision(password, None)
+def test_provision_creates_admin_key_file():
+    storage.provision("admin@example.com", b"password123", None)
+    h = storage.email_to_hash("admin@example.com")
+    assert os.path.exists(os.path.join(storage.KEYS_DIR, f"{h}.pem"))
 
-    with open(storage.DATA_FILE) as f:
-        data = json.load(f)
 
+def test_provision_admin_key_loadable():
+    pw = b"testpassword"
+    storage.provision("admin@example.com", pw, None)
+    h = storage.email_to_hash("admin@example.com")
+    key = storage.load_user_private_key(h, pw)
+    assert key is not None
+
+
+def test_provision_with_sync_data():
+    sync = {"webdav_url": "https://example.com/dav", "auth_user": "u", "password": "p"}
+    storage.provision("admin@example.com", b"pw12345678", sync)
+    data = storage.load_file_raw()
+    assert data["sync_config"] is not None
+
+
+def test_provision_without_sync_data():
+    storage.provision("admin@example.com", b"pw12345678", None)
+    data = storage.load_file_raw()
     assert data["sync_config"] is None
-    assert data["version"] == 1
 
 
-def test_provision_write_failure(temp_base, monkeypatch):
-    def fail(*args, **kwargs):
-        raise OSError("fail")
-
-    monkeypatch.setattr("builtins.open", fail)
-
-    with pytest.raises(RuntimeError):
-        storage.provision(b"pw", None)
+def test_provision_marks_as_provisioned():
+    assert storage.is_provisioned() is False
+    storage.provision("admin@example.com", b"pw12345678", None)
+    assert storage.is_provisioned() is True
