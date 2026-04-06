@@ -25,7 +25,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install system dependencies
-        run: sudo apt-get install -y python3-tk
+        run: sudo apt-get install -y python3-tk pandoc
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -35,6 +35,11 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           echo "VERSION = \"$VERSION\"" > gui/version.py
           echo "Building version $VERSION"
+
+      - name: Build HTML docs
+        run: |
+          pandoc README.md -o build/README.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8
+          pandoc WHITEPAPER.md -o build/WHITEPAPER.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8
 
       - name: Build Linux binary
         run: |
@@ -63,7 +68,8 @@ jobs:
             calsec-linux.sig \
             ../assets/icon.png \
             ../assets/install_calsec.sh \
-            ../README.md
+            README.html \
+            WHITEPAPER.html
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
@@ -85,6 +91,14 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Install pandoc
+        run: choco install pandoc -y
+
+      - name: Build HTML docs
+        run: |
+          pandoc README.md -o build/README.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8
+          pandoc WHITEPAPER.md -o build/WHITEPAPER.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8
 
       - name: Set version from tag
         run: |
@@ -116,7 +130,7 @@ jobs:
       - name: Package Windows zip
         run: |
           Compress-Archive -Force `
-            -Path build/calsec.exe,build/calsec.exe.sig,assets/icon.png,assets/icon.ico,assets/install_calsec.sh,README.md `
+            -Path build/calsec.exe,build/calsec.exe.sig,assets/icon.png,assets/icon.ico,assets/install_calsec.sh,build/README.html,build/WHITEPAPER.html `
             -DestinationPath build/calsec-windows.zip
 
       - name: Upload to release

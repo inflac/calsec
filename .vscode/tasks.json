@@ -89,23 +89,38 @@
 
       "windows": {
         "command": "powershell",
-        "args": [
-          "-Command",
-          "echo Skipping HTML build on Windows"
-        ]
+        "args": ["-Command", "echo Skipping HTML build on Windows"]
       },
 
       "linux": {
         "command": "bash",
         "args": [
           "-c",
-          "if command -v pandoc >/dev/null 2>&1; then pandoc README.md   -o build/README.html   --standalone   --include-in-header=assets/style.css   --lua-filter=assets/admonition.lua   --metadata charset=UTF-8; else echo \"pandoc is not installed, skipping HTML-Build.\"; fi"
+          "if command -v pandoc >/dev/null 2>&1; then pandoc README.md -o build/README.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8; else echo \"pandoc is not installed, skipping HTML-Build.\"; fi"
         ]
       },
 
-      "presentation": {
-        "reveal": "silent"
-      }
+      "presentation": { "reveal": "silent" }
+    },
+
+    {
+      "label": "Build WHITEPAPER (HTML)",
+      "type": "shell",
+
+      "windows": {
+        "command": "powershell",
+        "args": ["-Command", "echo Skipping HTML build on Windows"]
+      },
+
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-c",
+          "if command -v pandoc >/dev/null 2>&1; then pandoc WHITEPAPER.md -o build/WHITEPAPER.html --standalone --include-in-header=assets/style.css --lua-filter=assets/admonition.lua --metadata charset=UTF-8; else echo \"pandoc is not installed, skipping HTML-Build.\"; fi"
+        ]
+      },
+
+      "presentation": { "reveal": "silent" }
     },
     {
       "label": "Set version from git tag",
@@ -178,13 +193,13 @@
     {
       "label": "Build & Package",
       "type": "shell",
-      "dependsOn": ["Build binary", "Build README (HTML)"],
+      "dependsOn": ["Build binary", "Build README (HTML)", "Build WHITEPAPER (HTML)"],
 
       "windows": {
         "command": "powershell",
         "args": [
           "-Command",
-          "Compress-Archive -Force -Path build/calsec.exe,assets/icon.png,assets/icon.ico,assets/install_calsec.sh,README.md -DestinationPath build/calsec-windows.zip"
+          "Compress-Archive -Force -Path build/calsec.exe,assets/icon.png,assets/icon.ico,assets/install_calsec.sh,README.md,WHITEPAPER.md -DestinationPath build/calsec-windows.zip"
         ]
       },
 
@@ -192,7 +207,7 @@
         "command": "bash",
         "args": [
           "-c",
-          "if [ -f build/README.html ]; then zip -j build/calsec-linux.zip build/calsec-linux assets/icon.png assets/install_calsec.sh build/README.html; else zip -j build/calsec-linux.zip build/calsec-linux assets/icon.png assets/install_calsec.sh README.md; fi"
+          "html_files=(); [ -f build/README.html ] && html_files+=(build/README.html) || html_files+=(README.md); [ -f build/WHITEPAPER.html ] && html_files+=(build/WHITEPAPER.html) || html_files+=(WHITEPAPER.md); zip -j build/calsec-linux.zip build/calsec-linux assets/icon.png assets/install_calsec.sh \"${html_files[@]}\""
         ]
       },
 
