@@ -85,7 +85,8 @@ def _session():
     # If launched under torsocks (LD_PRELOAD), bypass the LD_PRELOAD mechanism
     # and talk to the Tor SOCKS5 proxy directly. socks5h delegates hostname
     # resolution to the proxy so no DNS leaks occur.
-    if "torsocks" in os.environ.get("LD_PRELOAD", "").lower():
+    if any("torsocks" in part.lower()
+           for part in os.environ.get("LD_PRELOAD", "").split(":") if part):
         tor_proxy = "socks5h://127.0.0.1:9050"
         s.proxies = {"http": tor_proxy, "https": tor_proxy}
 

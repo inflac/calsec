@@ -212,6 +212,59 @@ class AddUserDialog(tk.Toplevel):
         self.destroy()
 
 
+class ChangeRoleDialog(tk.Toplevel):
+    """Admin: change the role of an existing user."""
+
+    def __init__(self, parent, identifier: str, current_role: str):
+        super().__init__(parent)
+        self.withdraw()
+        self.transient(parent)
+        self.title(i18n._("change_role_title"))
+        self.resizable(False, False)
+
+        # result: new role string, or None if cancelled
+        self.result = None
+
+        pad = _PAD
+
+        ttk.Label(self, text=i18n._("change_role_user").format(identifier=identifier),
+                  wraplength=320).grid(row=0, column=0, columnspan=2, sticky="w",
+                                       padx=14, pady=(14, 6))
+
+        ttk.Label(self, text=i18n._("change_role_current").format(
+            role=current_role.capitalize())).grid(
+            row=1, column=0, columnspan=2, sticky="w", padx=14, pady=(0, 8))
+
+        ttk.Separator(self, orient="horizontal").grid(
+            row=2, column=0, columnspan=2, sticky="ew", padx=10, pady=4)
+
+        ttk.Label(self, text=i18n._("change_role_new")).grid(
+            row=3, column=0, sticky="e", **pad)
+
+        self._role = tk.StringVar(value=current_role)
+        role_frame = ttk.Frame(self)
+        role_frame.grid(row=3, column=1, sticky="w", **pad)
+        for label, value in [("Viewer", "viewer"), ("Editor", "editor"), ("Admin", "admin")]:
+            ttk.Radiobutton(role_frame, text=label,
+                            variable=self._role, value=value).pack(side="left", padx=4)
+
+        ttk.Separator(self, orient="horizontal").grid(
+            row=4, column=0, columnspan=2, sticky="ew", padx=10, pady=6)
+
+        btn_frame = ttk.Frame(self)
+        btn_frame.grid(row=5, column=0, columnspan=2, pady=(0, 10))
+        ttk.Button(btn_frame, text=i18n._("btn_save"),
+                   command=self._confirm).pack(side="left", padx=6)
+        ttk.Button(btn_frame, text=i18n._("btn_cancel"),
+                   command=self.destroy).pack(side="left", padx=6)
+
+        _center_dialog(self, parent)
+
+    def _confirm(self):
+        self.result = self._role.get()
+        self.destroy()
+
+
 class UserManagementDialog(tk.Toplevel):
     """Admin-only: list, add, and remove users."""
 
@@ -249,6 +302,8 @@ class UserManagementDialog(tk.Toplevel):
         actions.pack(fill="x", padx=10, pady=(4, 10))
         ttk.Button(actions, text=i18n._("btn_remove"),
                    command=self._remove_selected).pack(side="left")
+        ttk.Button(actions, text=i18n._("btn_change_role"),
+                   command=self._change_role_selected).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text=i18n._("btn_copy_onboarding"),
                    command=self._copy_onboarding).pack(side="left", padx=(8, 0))
         ttk.Button(actions, text=i18n._("btn_close"),
@@ -330,6 +385,38 @@ class UserManagementDialog(tk.Toplevel):
             show_error(self, i18n._("err_title"), str(e))
             return
         self._refresh()
+
+    def _change_role_selected(self):
+        sel = self._tree.selection()
+        if not sel:
+            show_info(self, i18n._("user_mgmt_title"), i18n._("hint_select_user"))
+            return
+        u = self._users.get(sel[0])
+        if u is None:
+            return
+
+        dlg = ChangeRoleDialog(self, u["identifier"] or u["hash"][:16], u["role"])
+        self.wait_window(dlg)
+        self.grab_set()
+        if dlg.result is None or dlg.result == u["role"]:
+            return
+
+        new_role = dlg.result
+        try:
+            self._app.change_user_role(u["hash"], new_role)
+        except RuntimeError as e:
+            show_error(self, i18n._("err_title"), str(e))
+            return
+
+        self._refresh()
+        show_info(
+            self,
+            i18n._("role_changed_title"),
+            i18n._("role_changed_body").format(
+                label=u["identifier"] or u["hash"][:16],
+                role=new_role.capitalize(),
+            ),
+        )
 
     def _copy_onboarding(self):
         from app import build_onboarding_text

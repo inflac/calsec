@@ -655,6 +655,64 @@ class CalendarApp:
         self._save_and_sync(changed="users")
         return kpriv_bytes
 
+    def change_user_role(self, user_hash: str, new_role: str) -> None:
+        """Change the role of an existing user.
+
+        Adds or removes the encrypted sign keys stored in the user entry as
+        required by the new role:
+          viewer  → no sign keys
+          editor  → edit_sign_key_enc only
+          admin   → edit_sign_key_enc + admin_sign_key_enc
+
+        Raises RuntimeError if caller is not admin or tries to change their own role.
+        """
+        if not self._is_admin:
+            raise RuntimeError("Only admin can change user roles.")
+        if user_hash == self._user_hash:
+            raise RuntimeError("Cannot change your own role.")
+        if user_hash not in self._users:
+            raise RuntimeError("User not found.")
+
+        u = self._users[user_hash]
+        if u.get("role") == new_role:
+            return  # nothing to do
+
+        kpub = ec.EllipticCurvePublicKey.from_encoded_point(
+            ec.SECP256R1(), b64d(u["kpub_enc"]))
+
+        # ── edit_sign_key_enc ─────────────────────────────────────────────────
+        if new_role in ("admin", "editor"):
+            if "edit_sign_key_enc" not in u:
+                if self._kpriv_edit_sign is None:
+                    raise RuntimeError(
+                        "Edit sign key unavailable — cannot promote to editor/admin.")
+                edit_sign_key_pem = self._kpriv_edit_sign.private_bytes(
+                    serialization.Encoding.PEM,
+                    serialization.PrivateFormat.PKCS8,
+                    serialization.NoEncryption(),
+                )
+                u["edit_sign_key_enc"] = ecies_encrypt(kpub, edit_sign_key_pem)
+        else:  # viewer
+            u.pop("edit_sign_key_enc", None)
+
+        # ── admin_sign_key_enc ────────────────────────────────────────────────
+        if new_role == "admin":
+            if "admin_sign_key_enc" not in u:
+                if self._kpriv_admin_sign is None:
+                    raise RuntimeError(
+                        "Admin sign key unavailable — cannot promote to admin.")
+                admin_sign_key_pem = self._kpriv_admin_sign.private_bytes(
+                    serialization.Encoding.PEM,
+                    serialization.PrivateFormat.PKCS8,
+                    serialization.NoEncryption(),
+                )
+                u["admin_sign_key_enc"] = ecies_encrypt(kpub, admin_sign_key_pem)
+        else:
+            u.pop("admin_sign_key_enc", None)
+
+        u["role"] = new_role
+        self._save_and_sync(changed="users")
+
     def remove_user(self, user_hash_str: str) -> None:
         """Remove a user and rotate sym_key_cal (re-encrypts all entries).
         Raises RuntimeError if caller is not admin or tries to remove themselves."""
