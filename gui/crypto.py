@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import hashlib
 import json
 import os
 import base64
@@ -93,6 +94,32 @@ def decrypt_entry(enc_entry: dict, sym_key_cal: bytes) -> dict:
 def pem_to_public_key(pem_str: str):
     """Load an EC public key from a PEM string."""
     return serialization.load_pem_public_key(pem_str.encode())
+
+
+def canonical_sign_keys(sign_keys: dict) -> bytes:
+    """Canonical serialization of sign_keys for fingerprinting."""
+    return json.dumps(
+        {"sign_keys": sign_keys},
+        sort_keys=True, separators=(",", ":"),
+    ).encode()
+
+
+def sign_keys_fingerprint(sign_keys: dict) -> str:
+    """Return the SHA-256 fingerprint of sign_keys as 64 lowercase hex chars."""
+    return hashlib.sha256(canonical_sign_keys(sign_keys)).hexdigest()
+
+
+def normalize_fingerprint(value: str) -> str:
+    """Normalize a fingerprint by removing separators and lowercasing."""
+    return "".join(ch for ch in value.lower() if ch in "0123456789abcdef")
+
+
+def format_fingerprint(value: str, group: int = 4) -> str:
+    """Format a fingerprint for display."""
+    normalized = normalize_fingerprint(value)
+    return " ".join(
+        normalized[i:i + group] for i in range(0, len(normalized), group)
+    ).upper()
 
 
 # ── File signing — two independent sections ───────────────────────────────────

@@ -4,8 +4,11 @@ from tkinter import ttk
 import i18n
 import storage
 import theme
+from crypto import format_fingerprint
 
-from ui.dialogs.base import _PAD, _center_dialog, show_info, show_error, ask_yes_no
+from ui.dialogs.base import (
+    _PAD, _center_dialog, show_info, show_error, ask_yes_no, copy_to_clipboard,
+)
 
 
 class SyncConfigDialog(tk.Toplevel):
@@ -244,6 +247,8 @@ class UserManagementDialog(tk.Toplevel):
 
         ttk.Button(self, text=i18n._("btn_remove"),
                    command=self._remove_selected).pack(pady=(4, 0))
+        ttk.Button(self, text=i18n._("btn_copy_onboarding"),
+                   command=self._copy_onboarding).pack(pady=(4, 0))
         ttk.Button(self, text=i18n._("btn_close"),
                    command=self.destroy).pack(pady=(4, 10))
 
@@ -323,3 +328,36 @@ class UserManagementDialog(tk.Toplevel):
             show_error(self, i18n._("err_title"), str(e))
             return
         self._refresh()
+
+    def _copy_onboarding(self):
+        from app import build_onboarding_text
+
+        sel = self._tree.selection()
+        if not sel:
+            show_info(self, i18n._("user_mgmt_title"), i18n._("hint_select_user"))
+            return
+        u = self._users.get(sel[0])
+        if u is None:
+            return
+
+        sync_config = self._app.sync_config
+        if sync_config is None:
+            show_error(self, i18n._("err_title"), i18n._("err_sync_missing_onboarding"))
+            return
+
+        try:
+            text = build_onboarding_text(
+                u["identifier"],
+                sync_config,
+                format_fingerprint(self._app.fingerprint),
+            )
+            copy_to_clipboard(self, text)
+        except Exception as exc:
+            show_error(self, i18n._("err_title"), str(exc))
+            return
+
+        show_info(
+            self,
+            i18n._("onboarding_copied_title"),
+            i18n._("onboarding_copied_body").format(identifier=u["identifier"]),
+        )

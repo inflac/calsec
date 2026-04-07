@@ -253,7 +253,12 @@ class Application(tk.Tk):
             self.destroy()
             return
 
-        body = i18n._("setup_done_body_pw") if password else i18n._("setup_done_body")
+        from crypto import format_fingerprint, sign_keys_fingerprint
+        raw = storage.load_file_raw()
+        fingerprint = format_fingerprint(sign_keys_fingerprint(raw["sign_keys"]))
+        body = (
+            i18n._("setup_done_body_pw") if password else i18n._("setup_done_body")
+        ) + "\n\n" + i18n._("setup_done_fingerprint").format(fingerprint=fingerprint)
         show_info(self, i18n._("setup_done_title"), body)
         self._show_login()
 

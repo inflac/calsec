@@ -49,17 +49,24 @@ class FetchCalendarDialog(tk.Toplevel):
         self._pw = ttk.Entry(self, show="*", width=42)
         self._pw.grid(row=5, column=1, sticky="w", **pad)
 
+        ttk.Label(self, text=i18n._("lbl_fingerprint")).grid(row=6, column=0, sticky="e", **pad)
+        self._fingerprint = ttk.Entry(self, width=42)
+        self._fingerprint.grid(row=6, column=1, sticky="w", **pad)
+        ttk.Label(self, text=i18n._("lbl_fingerprint_hint"),
+                  foreground=theme.FG_DIM, wraplength=320, justify="left").grid(
+            row=7, column=1, sticky="w", padx=14, pady=(0, 2))
+
         self._status_var = tk.StringVar()
         ttk.Label(self, textvariable=self._status_var,
                   foreground=theme.RED, wraplength=400,
                   justify="center").grid(
-            row=6, column=0, columnspan=2, padx=10, pady=(6, 0))
+            row=8, column=0, columnspan=2, padx=10, pady=(6, 0))
 
         ttk.Separator(self, orient="horizontal").grid(
-            row=7, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
+            row=9, column=0, columnspan=2, sticky="ew", padx=10, pady=8)
 
         btn_frame = ttk.Frame(self)
-        btn_frame.grid(row=8, column=0, columnspan=2, pady=(0, 12))
+        btn_frame.grid(row=10, column=0, columnspan=2, pady=(0, 12))
         self._dl_btn = ttk.Button(btn_frame, text=i18n._("btn_download"),
                                    command=self._download)
         self._dl_btn.pack(side="left", padx=6)
@@ -98,7 +105,10 @@ class FetchCalendarDialog(tk.Toplevel):
 
         try:
             from sync import sync_pull
-            from crypto import verify_users, verify_entries, pem_to_public_key
+            from crypto import (
+                verify_users, verify_entries, pem_to_public_key,
+                sign_keys_fingerprint, normalize_fingerprint, format_fingerprint,
+            )
 
             data, msg = sync_pull(config)
             if data is None:
@@ -109,6 +119,19 @@ class FetchCalendarDialog(tk.Toplevel):
             sign_keys = data.get("sign_keys", {})
             if not sign_keys:
                 self._status_var.set(i18n._("err_no_sign_keys"))
+                self._dl_btn.configure(state="normal")
+                return
+
+            expected_fingerprint = normalize_fingerprint(self._fingerprint.get())
+            if len(expected_fingerprint) != 64:
+                self._status_var.set(i18n._("err_fingerprint_required"))
+                self._dl_btn.configure(state="normal")
+                return
+
+            actual_fingerprint = sign_keys_fingerprint(sign_keys)
+            if actual_fingerprint != expected_fingerprint:
+                self._status_var.set(i18n._("err_fingerprint_mismatch").format(
+                    fingerprint=format_fingerprint(actual_fingerprint)))
                 self._dl_btn.configure(state="normal")
                 return
 

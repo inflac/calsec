@@ -60,6 +60,22 @@ sig_entries = ECDSA(kpriv_edit_sign,   entries)
 
 This separation means editors can sign entry changes without being able to forge user or access-control changes. The sync configuration is also covered by `sig_users`, so it can be decrypted by all users who hold `sym_key_cal` but only admins can authorize changes to it.
 
+### First-Import Trust
+
+For the very first import on a new non-admin device, signature verification alone is not sufficient because the signing public keys are distributed inside `calendar.json` itself. CalSec therefore uses a manually verified trust-on-first-import step:
+
+- The admin shares the current signing fingerprint over a separate trusted channel
+- The new user enters this expected fingerprint before the first calendar download
+- CalSec computes the fingerprint from `sign_keys` and only saves the file if both values match and all signatures verify successfully
+
+The fingerprint is defined as:
+
+```text
+fingerprint = SHA-256(canonical_json({"sign_keys": sign_keys}))
+```
+
+After the first trusted import, later syncs only accept files whose `sign_keys` exactly match the locally stored ones.
+
 ### Sign Key Distribution
 
 Signing private keys are stored inside `calendar.json` encrypted to each eligible user's public key via ECIES:
@@ -125,3 +141,4 @@ EOF
 - **Key storage** — Private keys are stored on the Tails persistent volume. Physical access to the device is a risk regardless of encryption.
 - **No forward secrecy for entries** — If a user's private key is compromised, past entries encrypted to that key can be decrypted. Key rotation on user removal mitigates this for future entries only.
 - **Admin trust** — The admin controls user access, key rotation, and the sync configuration. A malicious admin can deny access to all users or manipulate the sync config. The sync URL is enforced to always point to `calendar.json` in the configured folder, preventing an admin from redirecting clients to arbitrary remote resources.
+- **First-import verification** — New users must compare the signing fingerprint with the value received from the admin over a separate trusted channel. If that channel is compromised, the first import can still be subverted.

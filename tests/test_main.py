@@ -116,3 +116,24 @@ def test_expand_yearly_no_match_wrong_month():
     entry = _entry("10.03.2025", freq="yearly", interval=1)
     result = app_module._expand_recurrence(entry, 2026, 1)
     assert result == []
+
+
+def test_build_onboarding_text_contains_required_data():
+    text = app_module.build_onboarding_text(
+        "alice",
+        {
+            "webdav_url": "https://cloud.example.com/dav/team",
+            "auth_user": "alice",
+            "password": "secret-app-password",
+        },
+        "ABCD EFGH",
+    )
+    assert "alice" in text
+    assert "https://cloud.example.com/dav/team" in text
+    assert "secret-app-password" in text
+    assert "ABCD EFGH" in text
+
+
+def test_build_onboarding_text_requires_sync_config():
+    with pytest.raises(RuntimeError):
+        app_module.build_onboarding_text("alice", None, "ABCD EFGH")

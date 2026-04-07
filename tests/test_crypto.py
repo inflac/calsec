@@ -208,3 +208,27 @@ def test_pem_to_public_key_roundtrip():
 def test_pem_to_public_key_invalid_raises():
     with pytest.raises(Exception):
         crypto.pem_to_public_key("not a pem key")
+
+
+def test_sign_keys_fingerprint_stable_for_same_data():
+    sign_keys = {"admin": "pk_admin", "edit": "pk_edit"}
+    fp1 = crypto.sign_keys_fingerprint(sign_keys)
+    fp2 = crypto.sign_keys_fingerprint(dict(sign_keys))
+    assert fp1 == fp2
+
+
+def test_sign_keys_fingerprint_changes_when_sign_keys_change():
+    fp1 = crypto.sign_keys_fingerprint({"admin": "pk_admin", "edit": "pk_edit"})
+    fp2 = crypto.sign_keys_fingerprint({"admin": "pk_admin2", "edit": "pk_edit"})
+    assert fp1 != fp2
+
+
+def test_normalize_fingerprint_strips_formatting():
+    raw = "aabbccdd" * 8
+    formatted = "AA BB CC DD " * 8
+    assert crypto.normalize_fingerprint(formatted) == raw
+
+
+def test_format_fingerprint_groups_for_display():
+    raw = "aabbccdd" * 8
+    assert crypto.format_fingerprint(raw) == "AABB CCDD AABB CCDD AABB CCDD AABB CCDD AABB CCDD AABB CCDD AABB CCDD AABB CCDD"

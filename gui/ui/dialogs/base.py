@@ -46,6 +46,42 @@ def show_info(parent: tk.BaseWidget, title: str, message: str) -> None:
     parent.winfo_toplevel().wait_window(dlg)
 
 
+def show_copyable_text(parent: tk.BaseWidget, title: str,
+                       message: str, text: str) -> None:
+    dlg = _make_dialog(parent, title)
+    ttk.Label(dlg, text=message, wraplength=420,
+              justify="center").pack(padx=24, pady=(20, 10))
+
+    box = tk.Text(
+        dlg,
+        width=52,
+        height=3,
+        wrap="word",
+        relief="solid",
+        borderwidth=1,
+        font=("Courier New", 10),
+    )
+    box.pack(fill="x", padx=24, pady=(0, 12))
+    box.insert("1.0", text)
+    box.configure(state="disabled")
+
+    btn_frame = ttk.Frame(dlg)
+    btn_frame.pack(pady=(0, 16))
+    ttk.Button(
+        btn_frame,
+        text=i18n._("btn_copy"),
+        command=lambda: copy_to_clipboard(dlg, text),
+    ).pack(side="left", padx=6)
+    ttk.Button(
+        btn_frame,
+        text=i18n._("btn_ok"),
+        command=dlg.destroy,
+    ).pack(side="left", padx=6)
+
+    _center_dialog(dlg, parent)
+    parent.winfo_toplevel().wait_window(dlg)
+
+
 def show_error(parent: tk.BaseWidget, title: str, message: str) -> None:
     dlg = _make_dialog(parent, title)
     ttk.Label(dlg, text=message, wraplength=360,
@@ -69,3 +105,10 @@ def ask_yes_no(parent: tk.BaseWidget, title: str, message: str) -> bool:
     _center_dialog(dlg, parent)
     parent.winfo_toplevel().wait_window(dlg)
     return result[0]
+
+
+def copy_to_clipboard(parent: tk.BaseWidget, text: str) -> None:
+    root = parent.winfo_toplevel()
+    root.clipboard_clear()
+    root.clipboard_append(text)
+    root.update()

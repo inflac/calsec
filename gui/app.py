@@ -15,6 +15,7 @@ from crypto import (
     sign_users, sign_entries,
     verify_users, verify_entries,
     pem_to_public_key,
+    sign_keys_fingerprint,
     sym_encrypt, sym_decrypt,
     ecies_encrypt,
     b64, b64d,
@@ -32,6 +33,28 @@ def _get_identifier_enc(user_entry: dict) -> dict:
     if "email_enc" in user_entry:
         return user_entry["email_enc"]
     raise KeyError("User entry is missing identifier data.")
+
+
+def build_onboarding_text(identifier: str, sync_config: dict, fingerprint: str) -> str:
+    """Return a standardized onboarding message for a user."""
+    if not sync_config:
+        raise RuntimeError("Sync configuration is not available.")
+    return (
+        "CalSec Onboarding\n\n"
+        f"Identifier: {identifier}\n\n"
+        "1. Install CalSec.\n"
+        "2. Generate your local keypair.\n"
+        "3. Send your public key and identifier to the admin.\n"
+        "4. Wait until the admin confirms that your user has been added.\n"
+        "5. Enter the following sync data in CalSec:\n\n"
+        f"WebDAV URL: {sync_config['webdav_url']}\n"
+        f"Username: {sync_config['auth_user']}\n"
+        f"App Password: {sync_config['password']}\n\n"
+        "6. On the first calendar download, compare this signing fingerprint exactly:\n\n"
+        f"{fingerprint}\n\n"
+        "If the fingerprint does not match exactly, stop and contact the admin.\n"
+        "Never share your private key."
+    )
 
 
 def _nth_weekday_of_month(year: int, month: int, weekday: int, pos: int):
@@ -273,6 +296,10 @@ class CalendarApp:
     @property
     def can_edit(self) -> bool:
         return self._kpriv_edit_sign is not None
+
+    @property
+    def fingerprint(self) -> str:
+        return sign_keys_fingerprint(self._sign_keys)
 
     @property
     def sync_config(self):

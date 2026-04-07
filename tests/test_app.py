@@ -68,6 +68,11 @@ def test_sync_config_none_by_default(provisioned):
     assert cal.sync_config is None
 
 
+def test_fingerprint_present(provisioned):
+    cal, _ = provisioned
+    assert len(cal.fingerprint) == 64
+
+
 # ── Entries — initial state ───────────────────────────────────────────────────
 
 def test_get_entries_initially_empty(provisioned):
@@ -174,11 +179,13 @@ def test_list_users_admin_role(provisioned):
 
 def test_add_user_registers_new_user(provisioned):
     cal, _ = provisioned
+    fingerprint_before = cal.fingerprint
     kpriv_bytes = cal.add_user("newuser@example.com", None, b"userpass123", role="viewer")
     users = cal.list_users()
     identifiers = [u["identifier"] for u in users]
     assert "newuser@example.com" in identifiers
     assert kpriv_bytes is not None
+    assert cal.fingerprint == fingerprint_before
 
 
 def test_add_user_with_external_key(provisioned):
@@ -200,10 +207,12 @@ def test_add_user_non_admin_raises(provisioned):
 def test_remove_user(provisioned):
     cal, _ = provisioned
     cal.add_user("todelete@example.com", None, b"pass12345", role="viewer")
+    fingerprint_before = cal.fingerprint
     h = storage.identifier_to_hash("todelete@example.com")
     cal.remove_user(h)
     identifiers = [u["identifier"] for u in cal.list_users()]
     assert "todelete@example.com" not in identifiers
+    assert cal.fingerprint == fingerprint_before
 
 
 def test_remove_self_raises(provisioned):

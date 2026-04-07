@@ -34,11 +34,26 @@ To uninstall, run the installer again and choose **"Uninstall"**. You will be as
 - Optionally set a **password** for your private key (required on every subsequent start)
 - Optionally configure a **WebDAV folder URL** for sync
 
-CalSec will generate your admin keypair and create the encrypted `calendar.json`.
+CalSec will generate your admin keypair and create the encrypted `calendar.json`. After setup, CalSec shows the calendar signing fingerprint. Share this fingerprint with new users over a separate trusted channel.
 
-**Adding users** — Each new user installs CalSec and generates a keypair. They send their public key file (`.pub.pem`) and identifier to the admin, who adds them via **User Management**.
+**User onboarding** — The recommended order for new users is:
 
-**Non-admin first start** — If a local key exists but no `calendar.json` is present, CalSec prompts for WebDAV credentials to download the calendar once. Both signatures are verified before saving.
+1. Install CalSec
+2. Generate a local keypair
+3. Send the public key file (`.pub.pem`) and identifier to the admin
+4. Wait until the admin has added the user
+5. Receive the sync data and signing fingerprint from the admin over separate channels where possible
+6. Enter the sync data in CalSec
+7. On the first calendar download, compare the displayed signing fingerprint with the one received from the admin
+
+**Adding users as admin** — Add new users only after you have received their public key and identifier. Then send them:
+
+- the WebDAV sync data
+- the current signing fingerprint shown by CalSec
+
+CalSec can standardize this handoff for you: in **User Management**, select a user and use **Copy Onboarding** to copy a ready-to-send onboarding message containing the sync data, signing fingerprint, and user instructions.
+
+**Non-admin first start** — If a local key exists but no `calendar.json` is present, CalSec prompts for WebDAV credentials and the expected signing fingerprint. The calendar is only saved if the fingerprint matches and both signatures verify successfully.
 
 ## Updates
 

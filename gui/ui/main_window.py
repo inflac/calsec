@@ -9,11 +9,13 @@ from tkinter import ttk
 import i18n
 import settings
 import theme
+from crypto import format_fingerprint
 from updater import current_version
 from ui.dialogs import (AddEntryDialog, ViewEntryDialog,
                         SyncConfigDialog, UserManagementDialog,
                         SettingsDialog, UpdateDialog,
-                        show_info, show_error, ask_yes_no)
+                        show_info, show_error, ask_yes_no,
+                        show_copyable_text)
 
 
 def _kw_iid(year: int, week: int) -> str:
@@ -75,6 +77,8 @@ class MainWindow(ttk.Frame):
                        command=self._sync_settings).pack(side="left", padx=2)
             ttk.Button(toolbar, text=i18n._("btn_users_toolbar"),
                        command=self._manage_users).pack(side="left", padx=2)
+            ttk.Button(toolbar, text=i18n._("btn_fingerprint_toolbar"),
+                       width=3, command=self._show_fingerprint).pack(side="left", padx=2)
         ttk.Button(toolbar, text=i18n._("btn_sync_toolbar"),
                    command=self._pull_sync).pack(side="left", padx=2)
 
@@ -410,6 +414,14 @@ class MainWindow(ttk.Frame):
 
     def _manage_users(self):
         UserManagementDialog(self, self._app)
+
+    def _show_fingerprint(self):
+        show_copyable_text(
+            self,
+            i18n._("fingerprint_title"),
+            i18n._("fingerprint_copy_hint"),
+            format_fingerprint(self._app.fingerprint),
+        )
 
     def _open_settings(self):
         dlg = SettingsDialog(self)
