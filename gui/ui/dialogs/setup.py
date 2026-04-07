@@ -5,7 +5,6 @@ from tkinter import ttk
 import i18n
 import storage
 import theme
-
 from ui.dialogs.base import _PAD, _center_dialog, show_error
 
 
@@ -105,11 +104,15 @@ class FetchCalendarDialog(tk.Toplevel):
         self.update()
 
         try:
-            from sync import sync_pull
             from crypto import (
-                verify_users, verify_entries, pem_to_public_key,
-                sign_keys_fingerprint, normalize_fingerprint, format_fingerprint,
+                format_fingerprint,
+                normalize_fingerprint,
+                pem_to_public_key,
+                sign_keys_fingerprint,
+                verify_entries,
+                verify_users,
             )
+            from sync import sync_pull
 
             data, msg = sync_pull(config)
             if data is None:

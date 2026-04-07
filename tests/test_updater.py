@@ -1,7 +1,7 @@
 import sys
-import pytest
-import gui.updater as updater
 
+import gui.updater as updater
+import pytest
 
 # ── is_frozen ─────────────────────────────────────────────────────────────────
 

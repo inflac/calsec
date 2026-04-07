@@ -1,5 +1,5 @@
-import pytest
 import gui.i18n as i18n
+import pytest
 
 
 @pytest.fixture(autouse=True)

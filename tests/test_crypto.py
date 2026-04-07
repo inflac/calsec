@@ -1,8 +1,8 @@
 import os
-import pytest
-from cryptography.hazmat.primitives.asymmetric import ec
 
 import gui.crypto as crypto
+import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
 
 
 def _keypair():

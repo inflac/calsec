@@ -1,10 +1,9 @@
 import json
 import os
-import pytest
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import serialization
 
 import gui.storage as storage
+import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
 
 
 @pytest.fixture(autouse=True)
@@ -106,7 +105,7 @@ def test_save_file_uses_atomic_replace(monkeypatch):
 
 
 def test_save_file_raises_on_write_failure(monkeypatch):
-    monkeypatch.setattr(storage, "DATA_FILE", "/nonexistent/dir/calendar.json")
+    monkeypatch.setattr(storage.os, "makedirs", lambda *a, **kw: (_ for _ in ()).throw(OSError("Permission denied")))
     with pytest.raises(RuntimeError, match="Failed to write"):
         storage.save_file({"version": 4})
 

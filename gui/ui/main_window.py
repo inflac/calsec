@@ -1,21 +1,28 @@
 #!/usr/bin/env python3
 
-from datetime import datetime, date as _date
-
 import tkinter as tk
+from datetime import date as _date
+from datetime import datetime
 from tkinter import ttk
 
 import i18n
 import settings
 import theme
 from crypto import format_fingerprint
+from ui.dialogs import (
+    AddEntryDialog,
+    DatePickerDialog,
+    SettingsDialog,
+    SyncConfigDialog,
+    UpdateDialog,
+    UserManagementDialog,
+    ViewEntryDialog,
+    ask_yes_no,
+    show_copyable_text,
+    show_error,
+    show_info,
+)
 from updater import current_version
-from ui.dialogs import (AddEntryDialog, ViewEntryDialog,
-                        SyncConfigDialog, UserManagementDialog,
-                        SettingsDialog, UpdateDialog,
-                        DatePickerDialog,
-                        show_info, show_error, ask_yes_no,
-                        show_copyable_text)
 
 
 def _kw_iid(year: int, week: int) -> str:

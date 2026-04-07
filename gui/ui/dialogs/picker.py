@@ -1,9 +1,8 @@
 import tkinter as tk
-from tkinter import ttk
 from datetime import date as _date
+from tkinter import ttk
 
 import i18n
-import theme
 from ui.dialogs.base import _center_dialog
 
 

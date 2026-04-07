@@ -1,8 +1,8 @@
 import json
 import os
-import pytest
 
 import gui.settings as settings
+import pytest
 
 
 @pytest.fixture(autouse=True)

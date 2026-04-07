@@ -8,14 +8,13 @@ executable.
 Only active when running as a packaged binary (sys._MEIPASS is set).
 """
 
-import json
 import os
 import stat
 import sys
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
 
 OFFICIAL_CHANNEL = "https://api.github.com/repos/inflac/calsec/releases/latest"
 
@@ -95,7 +94,7 @@ def _session():
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
-def check_for_update() -> Optional[UpdateInfo]:
+def check_for_update() -> UpdateInfo | None:
     """
     Query the configured channel for a newer release.
 
@@ -128,7 +127,7 @@ def check_for_update() -> Optional[UpdateInfo]:
 
 def download_update(
     info: UpdateInfo,
-    progress_cb: Optional[Callable[[int, int], None]] = None,
+    progress_cb: Callable[[int, int], None] | None = None,
 ) -> Path:
     """
     Download the update binary to a temporary file, then verify its signature.
@@ -182,7 +181,6 @@ def _verify_release_signature(binary: Path, binary_url: str) -> None:
     if not _RELEASE_PUBLIC_KEY_PEM:
         return
 
-    import requests
 
     sig_url = binary_url + ".sig"
     resp = _session().get(sig_url, timeout=15)
@@ -195,6 +193,7 @@ def _verify_release_signature(binary: Path, binary_url: str) -> None:
     sig_b64 = resp.text.strip()
 
     import base64
+
     from cryptography.exceptions import InvalidSignature
     from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
@@ -204,11 +203,11 @@ def _verify_release_signature(binary: Path, binary_url: str) -> None:
 
     try:
         pub_key.verify(signature, data)
-    except InvalidSignature:
+    except InvalidSignature as exc:
         raise ValueError(
             "Signature verification failed — the downloaded binary does not "
             "match the expected signature. Aborting update."
-        )
+        ) from exc
 
 
 def apply_update(new_binary: Path) -> None:

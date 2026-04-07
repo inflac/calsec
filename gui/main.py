@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 
-import sys
 import os
+import sys
 import threading
 import tkinter as tk
-from tkinter import ttk, PhotoImage
+from tkinter import PhotoImage, ttk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import settings
-import i18n
-import theme
-import storage
-import updater
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
-from crypto import ecies_decrypt
+
+import i18n
+import settings
+import storage
+import theme
+import updater
 from app import CalendarApp
+from crypto import ecies_decrypt
 
 
 class LoginFrame(ttk.Frame):
@@ -242,7 +243,7 @@ class Application(tk.Tk):
         ))
 
     def _show_provision(self):
-        from ui.dialogs import ProvisionDialog, show_info, show_error
+        from ui.dialogs import ProvisionDialog, show_error, show_info
         while True:
             dlg = ProvisionDialog(self)
             self.wait_window(dlg)

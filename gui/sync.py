@@ -2,6 +2,7 @@
 
 import os
 
+import i18n
 from storage import DATA_FILE
 
 _TOR_PROXIES = {
@@ -23,16 +24,16 @@ def sync_push(config) -> str:
     try:
         import requests
     except ImportError:
-        return "Sync error: 'requests' library not installed."
+        return i18n._("sync_err_no_requests")
 
     if not os.path.exists(DATA_FILE):
-        return f"Sync: {DATA_FILE} not found, skipping."
+        return i18n._("sync_file_not_found").format(file=DATA_FILE)
 
     try:
         with open(DATA_FILE, "rb") as f:
             data = f.read()
     except Exception:
-        return "Sync error: Failed to read calendar file."
+        return i18n._("sync_err_read_failed")
 
     url  = _calendar_url(config)
     auth = (config["auth_user"], config["password"])
@@ -45,37 +46,36 @@ def sync_push(config) -> str:
             timeout=30,
         )
     except requests.exceptions.MissingSchema:
-        return (f"Sync error: Ungültige URL '{url}' — "
-                "URL muss mit http:// oder https:// beginnen.")
+        return i18n._("sync_err_invalid_url").format(url=url)
     except requests.exceptions.SSLError:
-        return "Sync error: SSL certificate verification failed."
+        return i18n._("sync_err_ssl")
     except requests.exceptions.ConnectionError:
-        return "Sync error: Could not connect to server."
+        return i18n._("sync_err_connection")
     except requests.exceptions.Timeout:
-        return "Sync error: Connection timed out."
+        return i18n._("sync_err_timeout")
 
     if response.status_code in (200, 201, 204):
-        return f"Synced ({response.status_code})."
+        return i18n._("sync_push_ok").format(code=response.status_code)
     elif response.status_code == 401:
-        return "Sync error: Authentication failed."
+        return i18n._("sync_err_auth")
     elif response.status_code == 403:
-        return "Sync error: Access denied."
+        return i18n._("sync_err_access_denied")
     elif response.status_code == 404:
-        return "Sync error: Remote path does not exist."
+        return i18n._("sync_err_path_not_found")
     else:
-        return f"Sync error: Unexpected response {response.status_code}."
+        return i18n._("sync_err_unexpected").format(code=response.status_code)
 
 
 def sync_pull(config) -> tuple:
     """Download calendar.json from a WebDAV URL via GET.
     Returns (data_dict, message). data_dict is None on failure."""
     if config is None:
-        return None, "Kein Sync konfiguriert."
+        return None, i18n._("sync_not_configured")
 
     try:
         import requests
     except ImportError:
-        return None, "Sync error: 'requests' library not installed."
+        return None, i18n._("sync_err_no_requests")
 
     url  = _calendar_url(config)
     auth = (config["auth_user"], config["password"])
@@ -83,28 +83,25 @@ def sync_pull(config) -> tuple:
     try:
         response = requests.get(url, auth=auth, proxies=_TOR_PROXIES, timeout=30)
     except requests.exceptions.MissingSchema:
-        return (None, f"Sync error: Ungültige URL '{url}' — "
-                "URL muss mit http:// oder https:// beginnen.")
+        return None, i18n._("sync_err_invalid_url").format(url=url)
     except requests.exceptions.SSLError:
-        return None, "Sync error: SSL certificate verification failed."
+        return None, i18n._("sync_err_ssl")
     except requests.exceptions.ConnectionError:
-        return None, "Sync error: Could not connect to server."
+        return None, i18n._("sync_err_connection")
     except requests.exceptions.Timeout:
-        return None, "Sync error: Connection timed out."
+        return None, i18n._("sync_err_timeout")
 
     if response.status_code == 200:
         try:
             import json as _json
-            return _json.loads(response.content.decode("utf-8-sig")), "Synchronisiert."
+            return _json.loads(response.content.decode("utf-8-sig")), i18n._("sync_pull_ok")
         except Exception:
-            ct = response.headers.get("Content-Type", "unbekannt")
+            ct      = response.headers.get("Content-Type", i18n._("sync_unknown"))
             snippet = response.text[:300].replace("\n", " ")
-            return None, (f"Sync error: Ungültiges JSON in der Antwort.\n"
-                          f"Content-Type: {ct}\n"
-                          f"Antwort: {snippet}")
+            return None, i18n._("sync_err_invalid_json").format(ct=ct, snippet=snippet)
     elif response.status_code == 401:
-        return None, "Sync error: Authentication failed."
+        return None, i18n._("sync_err_auth")
     elif response.status_code == 404:
-        return None, "Kein Remote-Kalender gefunden."
+        return None, i18n._("sync_err_no_remote")
     else:
-        return None, f"Sync error: Unexpected response {response.status_code}."
+        return None, i18n._("sync_err_unexpected").format(code=response.status_code)

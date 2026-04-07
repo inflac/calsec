@@ -1,14 +1,11 @@
 """Integration tests for CalendarApp — provisions real storage, no mocking of crypto."""
-import os
 import pytest
-from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-
-import storage
-from crypto import ecies_decrypt
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from gui.app import CalendarApp
 
+import storage
+from crypto import ecies_decrypt
 
 ADMIN_IDENTIFIER = "admin@example.com"
 ADMIN_PW         = b"testpassword123"

@@ -106,6 +106,25 @@ STRINGS = {
     "sync_title":               "Sync-Einstellungen",
     "sync_hint":                "WebDAV-URL leer lassen, um Sync zu deaktivieren.",
 
+    # ── Sync status / error messages ──────────────────────────────────────────
+    "sync_not_configured":      "Kein Sync konfiguriert.",
+    "sync_err_no_requests":     "Sync: 'requests'-Bibliothek nicht installiert.",
+    "sync_file_not_found":      "Sync: {file} nicht gefunden, übersprungen.",
+    "sync_err_read_failed":     "Sync: Kalenderdatei konnte nicht gelesen werden.",
+    "sync_err_invalid_url":     "Sync: Ungültige URL '{url}' — URL muss mit http:// oder https:// beginnen.",
+    "sync_err_ssl":             "Sync: SSL-Zertifikatsüberprüfung fehlgeschlagen.",
+    "sync_err_connection":      "Sync: Keine Verbindung zum Server.",
+    "sync_err_timeout":         "Sync: Verbindungs-Timeout.",
+    "sync_push_ok":             "Synchronisiert ({code}).",
+    "sync_err_auth":            "Sync: Authentifizierung fehlgeschlagen.",
+    "sync_err_access_denied":   "Sync: Zugriff verweigert.",
+    "sync_err_path_not_found":  "Sync: Remote-Pfad existiert nicht.",
+    "sync_err_unexpected":      "Sync: Unerwartete Antwort {code}.",
+    "sync_pull_ok":             "Synchronisiert.",
+    "sync_unknown":             "unbekannt",
+    "sync_err_invalid_json":    "Sync: Ungültiges JSON in der Antwort.\nContent-Type: {ct}\nAntwort: {snippet}",
+    "sync_err_no_remote":       "Kein Remote-Kalender gefunden.",
+
     # ── RecurrenceDialog ──────────────────────────────────────────────────────
     "recurrence_title":         "Wiederholung",
     "lbl_frequency":            "Frequenz:",

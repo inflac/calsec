@@ -106,6 +106,25 @@ STRINGS = {
     "sync_title":               "Sync Settings",
     "sync_hint":                "Leave WebDAV URL empty to disable sync.",
 
+    # ── Sync status / error messages ──────────────────────────────────────────
+    "sync_not_configured":      "Sync not configured.",
+    "sync_err_no_requests":     "Sync error: 'requests' library not installed.",
+    "sync_file_not_found":      "Sync: {file} not found, skipping.",
+    "sync_err_read_failed":     "Sync error: Failed to read calendar file.",
+    "sync_err_invalid_url":     "Sync error: Invalid URL '{url}' — URL must start with http:// or https://.",
+    "sync_err_ssl":             "Sync error: SSL certificate verification failed.",
+    "sync_err_connection":      "Sync error: Could not connect to server.",
+    "sync_err_timeout":         "Sync error: Connection timed out.",
+    "sync_push_ok":             "Synced ({code}).",
+    "sync_err_auth":            "Sync error: Authentication failed.",
+    "sync_err_access_denied":   "Sync error: Access denied.",
+    "sync_err_path_not_found":  "Sync error: Remote path does not exist.",
+    "sync_err_unexpected":      "Sync error: Unexpected response {code}.",
+    "sync_pull_ok":             "Synced.",
+    "sync_unknown":             "unknown",
+    "sync_err_invalid_json":    "Sync error: Invalid JSON in response.\nContent-Type: {ct}\nResponse: {snippet}",
+    "sync_err_no_remote":       "No remote calendar found.",
+
     # ── RecurrenceDialog ──────────────────────────────────────────────────────
     "recurrence_title":         "Recurrence",
     "lbl_frequency":            "Frequency:",

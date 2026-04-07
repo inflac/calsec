@@ -1,26 +1,33 @@
 #!/usr/bin/env python3
 
+import calendar as _cal_mod
 import json
 import os
-import uuid
-import calendar as _cal_mod
 import threading
-from datetime import datetime, date as _date, timedelta as _timedelta
+import uuid
+from datetime import date as _date
+from datetime import datetime
+from datetime import timedelta as _timedelta
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from crypto import (
-    encrypt_entry, decrypt_entry,
-    sign_users, sign_entries,
-    verify_users, verify_entries,
-    pem_to_public_key,
-    sign_keys_fingerprint,
-    sym_encrypt, sym_decrypt,
-    ecies_encrypt,
-    b64, b64d,
-)
 import storage
+from crypto import (
+    b64,
+    b64d,
+    decrypt_entry,
+    ecies_encrypt,
+    encrypt_entry,
+    pem_to_public_key,
+    sign_entries,
+    sign_keys_fingerprint,
+    sign_users,
+    sym_decrypt,
+    sym_encrypt,
+    verify_entries,
+    verify_users,
+)
 
 # Weekday codes: index matches Python's date.weekday() (0=Mon … 6=Sun)
 _WD_CODES = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]

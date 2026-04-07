@@ -146,7 +146,7 @@ def provision(admin_identifier: str, admin_password: bytes,
       kpriv_edit_sign  — signs entries; stored ECIES-encrypted for admins+editors.
     Both public keys are embedded in sign_keys in calendar.json.
     """
-    from crypto import b64, ecies_encrypt, sym_encrypt, sign_users, sign_entries
+    from crypto import b64, ecies_encrypt, sign_entries, sign_users, sym_encrypt
 
     os.makedirs(KEYS_DIR, exist_ok=True)
 

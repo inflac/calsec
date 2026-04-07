@@ -1,10 +1,9 @@
 import tkinter as tk
-from tkinter import ttk
 from datetime import datetime
+from tkinter import ttk
 
 import i18n
 import theme
-
 from ui.dialogs.base import _PAD, _PALETTE, _center_dialog, show_error
 
 # Internal weekday codes (stored in calendar data — do NOT translate)

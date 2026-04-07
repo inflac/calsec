@@ -3,7 +3,6 @@ from tkinter import ttk
 
 import i18n
 import theme
-
 from ui.dialogs.base import _center_dialog
 
 
@@ -18,8 +17,6 @@ class SettingsDialog(tk.Toplevel):
         self.resizable(False, False)
 
         import settings as _settings
-
-        pad = {"padx": 14, "pady": 4}
 
         # ── Language ──────────────────────────────────────────────────────────
         ttk.Label(self, text=i18n._("settings_lang_section"),
@@ -216,7 +213,7 @@ class UpdateDialog(tk.Toplevel):
             import updater
             info = updater.check_for_update()
         except Exception as exc:
-            self.after(0, lambda: self._on_error(str(exc)))
+            self.after(0, lambda e=exc: self._on_error(str(e)))
             return
         self.after(0, lambda: self._on_check_done(info))
 
@@ -244,7 +241,7 @@ class UpdateDialog(tk.Toplevel):
         try:
             tmp = updater.download_update(self._update_info, progress_cb=_progress)
         except Exception as exc:
-            self.after(0, lambda: self._on_error(str(exc)))
+            self.after(0, lambda e=exc: self._on_error(str(e)))
             return
         self.after(0, lambda: self._on_download_done(tmp))
 

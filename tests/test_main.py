@@ -1,10 +1,8 @@
 """Tests for pure business logic in app.py — no tkinter, no I/O."""
 from datetime import date
 
-import pytest
-
 import gui.app as app_module
-
+import pytest
 
 # ── _nth_weekday_of_month ─────────────────────────────────────────────────────
 

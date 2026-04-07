@@ -5,9 +5,13 @@ import i18n
 import storage
 import theme
 from crypto import format_fingerprint
-
 from ui.dialogs.base import (
-    _PAD, _center_dialog, show_info, show_error, ask_yes_no, copy_to_clipboard,
+    _PAD,
+    _center_dialog,
+    ask_yes_no,
+    copy_to_clipboard,
+    show_error,
+    show_info,
 )
 
 

@@ -1,9 +1,10 @@
 import json
 import sys
 import types
-import pytest
 
+import gui.i18n as i18n
 import gui.sync as sync_module
+import pytest
 
 
 class _Dummy(Exception):
@@ -74,12 +75,13 @@ def test_push_none_config_returns_none():
 
 def test_push_requests_not_installed(monkeypatch, calendar_file):
     monkeypatch.setitem(sys.modules, "requests", None)
-    assert "not installed" in sync_module.sync_push(_make_config())
+    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_no_requests")
 
 
 def test_push_missing_file(monkeypatch):
     monkeypatch.setattr(sync_module, "DATA_FILE", "/nonexistent/calendar.json")
-    assert "not found" in sync_module.sync_push(_make_config())
+    result = sync_module.sync_push(_make_config())
+    assert result == i18n._("sync_file_not_found").format(file="/nonexistent/calendar.json")
 
 
 def test_push_file_read_error(monkeypatch, calendar_file):
@@ -89,7 +91,7 @@ def test_push_file_read_error(monkeypatch, calendar_file):
             raise OSError("read failed")
         return original_open(path, mode, **kw)
     monkeypatch.setattr("builtins.open", fail_open)
-    assert "Failed to read" in sync_module.sync_push(_make_config())
+    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_read_failed")
 
 
 def test_push_success(monkeypatch, calendar_file):
@@ -102,15 +104,16 @@ def test_push_success_204(monkeypatch, calendar_file):
     assert "204" in sync_module.sync_push(_make_config())
 
 
-@pytest.mark.parametrize("code,msg", [
-    (401, "Authentication failed"),
-    (403, "Access denied"),
-    (404, "does not exist"),
-    (500, "Unexpected response"),
+@pytest.mark.parametrize("code,key", [
+    (401, "sync_err_auth"),
+    (403, "sync_err_access_denied"),
+    (404, "sync_err_path_not_found"),
+    (500, "sync_err_unexpected"),
 ])
-def test_push_http_errors(monkeypatch, calendar_file, code, msg):
+def test_push_http_errors(monkeypatch, calendar_file, code, key):
     monkeypatch.setitem(sys.modules, "requests", _fake_put(code))
-    assert msg in sync_module.sync_push(_make_config())
+    result = sync_module.sync_push(_make_config())
+    assert i18n._(key).format(code=code) in result
 
 
 def _push_exc(exc_cls, exc_name):
@@ -123,27 +126,32 @@ def _push_exc(exc_cls, exc_name):
 
 
 def test_push_ssl_error(monkeypatch, calendar_file):
-    class SSLError(Exception): pass
+    class SSLError(Exception):
+        pass
     monkeypatch.setitem(sys.modules, "requests", _push_exc(SSLError, "SSLError"))
-    assert "SSL" in sync_module.sync_push(_make_config())
+    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_ssl")
 
 
 def test_push_connection_error(monkeypatch, calendar_file):
-    class ConnectionError(Exception): pass
+    class ConnectionError(Exception):
+        pass
     monkeypatch.setitem(sys.modules, "requests", _push_exc(ConnectionError, "ConnectionError"))
-    assert "connect" in sync_module.sync_push(_make_config())
+    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_connection")
 
 
 def test_push_timeout(monkeypatch, calendar_file):
-    class Timeout(Exception): pass
+    class Timeout(Exception):
+        pass
     monkeypatch.setitem(sys.modules, "requests", _push_exc(Timeout, "Timeout"))
-    assert "timed out" in sync_module.sync_push(_make_config())
+    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_timeout")
 
 
 def test_push_missing_schema(monkeypatch, calendar_file):
-    class MissingSchema(Exception): pass
+    class MissingSchema(Exception):
+        pass
+    url = sync_module._calendar_url(_make_config())
     monkeypatch.setitem(sys.modules, "requests", _push_exc(MissingSchema, "MissingSchema"))
-    assert "Ungültige URL" in sync_module.sync_push(_make_config())
+    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_invalid_url").format(url=url)
 
 
 # ── sync_pull ─────────────────────────────────────────────────────────────────
@@ -157,7 +165,7 @@ def test_pull_requests_not_installed(monkeypatch):
     monkeypatch.setitem(sys.modules, "requests", None)
     data, msg = sync_module.sync_pull(_make_config())
     assert data is None
-    assert "not installed" in msg
+    assert msg == i18n._("sync_err_no_requests")
 
 
 def test_pull_success(monkeypatch):
@@ -177,14 +185,14 @@ def test_pull_401(monkeypatch):
     monkeypatch.setitem(sys.modules, "requests", _fake_get(401))
     data, msg = sync_module.sync_pull(_make_config())
     assert data is None
-    assert "Authentication" in msg
+    assert msg == i18n._("sync_err_auth")
 
 
 def test_pull_unexpected_status(monkeypatch):
     monkeypatch.setitem(sys.modules, "requests", _fake_get(500))
     data, msg = sync_module.sync_pull(_make_config())
     assert data is None
-    assert "Unexpected" in msg
+    assert msg == i18n._("sync_err_unexpected").format(code=500)
 
 
 def test_pull_invalid_json(monkeypatch):
@@ -197,7 +205,7 @@ def test_pull_invalid_json(monkeypatch):
         get=lambda *a, **kw: FakeResponse(), exceptions=_exc_ns()))
     data, msg = sync_module.sync_pull(_make_config())
     assert data is None
-    assert "JSON" in msg
+    assert "JSON" in i18n._("sync_err_invalid_json")
 
 
 def _pull_exc(exc_cls, exc_name):
@@ -210,32 +218,37 @@ def _pull_exc(exc_cls, exc_name):
 
 
 def test_pull_connection_error(monkeypatch):
-    class ConnectionError(Exception): pass
+    class ConnectionError(Exception):
+        pass
     monkeypatch.setitem(sys.modules, "requests", _pull_exc(ConnectionError, "ConnectionError"))
     data, msg = sync_module.sync_pull(_make_config())
     assert data is None
-    assert "connect" in msg
+    assert msg == i18n._("sync_err_connection")
 
 
 def test_pull_ssl_error(monkeypatch):
-    class SSLError(Exception): pass
+    class SSLError(Exception):
+        pass
     monkeypatch.setitem(sys.modules, "requests", _pull_exc(SSLError, "SSLError"))
     data, msg = sync_module.sync_pull(_make_config())
     assert data is None
-    assert "SSL" in msg
+    assert msg == i18n._("sync_err_ssl")
 
 
 def test_pull_timeout(monkeypatch):
-    class Timeout(Exception): pass
+    class Timeout(Exception):
+        pass
     monkeypatch.setitem(sys.modules, "requests", _pull_exc(Timeout, "Timeout"))
     data, msg = sync_module.sync_pull(_make_config())
     assert data is None
-    assert "timed out" in msg
+    assert msg == i18n._("sync_err_timeout")
 
 
 def test_pull_missing_schema(monkeypatch):
-    class MissingSchema(Exception): pass
+    class MissingSchema(Exception):
+        pass
+    url = sync_module._calendar_url(_make_config())
     monkeypatch.setitem(sys.modules, "requests", _pull_exc(MissingSchema, "MissingSchema"))
     data, msg = sync_module.sync_pull(_make_config())
     assert data is None
-    assert "Ungültige URL" in msg
+    assert msg == i18n._("sync_err_invalid_url").format(url=url)
