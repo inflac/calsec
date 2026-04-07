@@ -31,7 +31,7 @@ To uninstall, run the installer again and choose **"Uninstall"**. You will be as
 **Admin setup** — On the very first start, CalSec prompts you to set up the calendar:
 
 - Enter your **identifier** (for example a username or mail address)
-- Optionally set a **password** for your private key (required on every subsequent start)
+- Optionally set a **password** for your private key (required on every subsequent start). Without a password the private key is stored unencrypted on disk — strongly recommended on Tails and any shared or portable device.
 - Optionally configure a **WebDAV folder URL** for sync
 
 CalSec will generate your admin keypair and create the encrypted `calendar.json`. After setup, CalSec shows the calendar signing fingerprint. Share this fingerprint with new users over a separate trusted channel.
@@ -69,6 +69,8 @@ Every downloaded binary is verified against the Ed25519 signing key before insta
 
 ## Data Locations
 
+CalSec stores all data relative to the binary. On Tails with the recommended install script:
+
 ```text
 /live/persistence/TailsData_unlocked/
 └── programs/calsec/
@@ -78,6 +80,16 @@ Every downloaded binary is verified against the Ed25519 signing key before insta
     ├── calendar.json       # encrypted calendar (after sync)
     ├── keys/               # private keys (SECRET — never share these)
     └── pubkeys/            # public keys for sharing
+```
+
+On other systems, the same layout is created in whichever directory you place the binary:
+
+```text
+<directory containing the binary>/
+├── calsec              # binary (calsec.exe on Windows)
+├── calendar.json
+├── keys/
+└── pubkeys/
 ```
 
 The desktop entry is stored via the Dotfiles feature at `/live/persistence/TailsData_unlocked/dotfiles/.local/share/applications/calsec.desktop`.

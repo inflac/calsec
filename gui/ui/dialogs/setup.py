@@ -1,3 +1,4 @@
+import hmac
 import tkinter as tk
 from tkinter import ttk
 
@@ -129,7 +130,7 @@ class FetchCalendarDialog(tk.Toplevel):
                 return
 
             actual_fingerprint = sign_keys_fingerprint(sign_keys)
-            if actual_fingerprint != expected_fingerprint:
+            if not hmac.compare_digest(actual_fingerprint, expected_fingerprint):
                 self._status_var.set(i18n._("err_fingerprint_mismatch").format(
                     fingerprint=format_fingerprint(actual_fingerprint)))
                 self._dl_btn.configure(state="normal")

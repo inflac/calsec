@@ -180,5 +180,12 @@ EOF
 - **Sync provider trust** — CalSec does not hide metadata from the WebDAV provider (file size, access times).
 - **Key storage** — Private keys are stored on the Tails persistent volume. Physical access to the device is a risk regardless of encryption.
 - **No forward secrecy for entries** — If a user's private key is compromised, past entries encrypted to that key can be decrypted. Key rotation on user removal mitigates this for future entries only.
-- **Admin trust** — The admin controls user access, key rotation, and the sync configuration. A malicious admin can deny access to all users or manipulate the sync config. The sync URL is enforced to always point to `calendar.json` in the configured folder, preventing an admin from redirecting clients to arbitrary remote resources.
+- **Admin trust** — The admin holds `sym_key_cal` (decrypts all entries) and both signing private keys (can sign any change). A malicious or compromised admin can:
+  - Read all calendar entries in plaintext
+  - Add, modify, or delete entries and re-sign them (forged entries will pass signature verification)
+  - Manipulate metadata such as timestamps
+  - Revoke or demote any other user
+  - Modify the sync configuration
+  
+  The sync URL is enforced to always point to `calendar.json` in the configured folder, preventing an admin from redirecting clients to arbitrary remote resources. Non-admin users have no cryptographic way to detect admin-authored manipulation of the users section or entries — they rely entirely on trusting the admin.
 - **First-import verification** — New users must compare the signing fingerprint with the value received from the admin over a separate trusted channel. If that channel is compromised, the first import can still be subverted.

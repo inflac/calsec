@@ -72,8 +72,8 @@ def load_file_raw() -> dict:
     try:
         with open(DATA_FILE, encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
-        raise RuntimeError("Failed to read calendar file.")
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise RuntimeError("Failed to read calendar file.") from exc
 
 
 def _atomic_write_bytes(path: str, data: bytes, mode: int | None = None) -> None:
@@ -99,8 +99,8 @@ def save_file(data: dict) -> None:
     try:
         payload = json.dumps(data, indent=2).encode("utf-8")
         _atomic_write_bytes(DATA_FILE, payload)
-    except Exception:
-        raise RuntimeError("Failed to write calendar file.")
+    except (OSError, TypeError) as exc:
+        raise RuntimeError("Failed to write calendar file.") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -125,8 +125,8 @@ def load_user_private_key(user_hash_str: str, password: bytes | None):
     try:
         with open(path, "rb") as f:
             return serialization.load_pem_private_key(f.read(), password=password or None)
-    except Exception:
-        raise ValueError("Invalid password or corrupted user key.")
+    except (OSError, ValueError, TypeError, UnicodeDecodeError) as exc:
+        raise ValueError("Invalid password or corrupted user key.") from exc
 
 
 def save_user_key_file(user_hash_str: str, kpriv, password: bytes | None) -> None:
