@@ -16,6 +16,30 @@
     },
 
     {
+      "label": "Lint",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": ["-m", "ruff", "check", "gui/", "tests/"],
+      "group": "test",
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+
+    {
+      "label": "Lint (fix)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python",
+      "args": ["-m", "ruff", "check", "--fix", "gui/", "tests/"],
+      "group": "test",
+      "presentation": {
+        "reveal": "always"
+      },
+      "problemMatcher": []
+    },
+
+    {
       "label": "Run tests",
       "type": "shell",
       "command": "${workspaceFolder}/.venv/bin/python",

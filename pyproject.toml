@@ -1,0 +1,35 @@
+[tool.ruff]
+src            = ["gui"]
+line-length    = 100
+target-version = "py312"
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "app", "crypto", "i18n", "settings", "storage", "sync", "theme", "updater",
+    "ui",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (unused imports, undefined names, …)
+    "I",   # isort
+    "UP",  # pyupgrade (modernise syntax)
+    "B",   # flake8-bugbear (likely bugs & design issues)
+]
+ignore = [
+    "E221",  # multiple spaces before operator — used for alignment
+    "E241",  # multiple spaces after comma  — used for alignment
+    "E501",  # line too long               — not enforced here
+    "E741",  # ambiguous variable name     — 'l' appears in Tkinter code
+    "B905",  # zip() without strict=       — minor, existing pattern
+    "B017",  # pytest.raises(Exception)    — accepted in test suite
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401"]   # test files may import for side-effects / fixtures
+
+[tool.pytest.ini_options]
+testpaths    = ["tests"]
+addopts      = "-q"

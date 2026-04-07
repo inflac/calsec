@@ -5,5 +5,8 @@ requests[socks]
 pytest
 pytest-cov
 
+# Lint
+ruff
+
 # Build dependencies
 pyinstaller
