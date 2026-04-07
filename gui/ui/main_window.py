@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import calendar as _cal_mod
 from datetime import datetime, date as _date
 
 import tkinter as tk
@@ -14,6 +13,7 @@ from updater import current_version
 from ui.dialogs import (AddEntryDialog, ViewEntryDialog,
                         SyncConfigDialog, UserManagementDialog,
                         SettingsDialog, UpdateDialog,
+                        DatePickerDialog,
                         show_info, show_error, ask_yes_no,
                         show_copyable_text)
 
@@ -39,6 +39,7 @@ def _is_header(iid: str) -> bool:
     return iid.startswith("_kw_")
 
 
+
 class MainWindow(ttk.Frame):
     """Main application frame: entry list + month navigator + action buttons."""
 
@@ -60,43 +61,37 @@ class MainWindow(ttk.Frame):
             self._set_status(i18n._("warn_unsigned"), error=True)
 
     def _build_ui(self):
-        # ── Toolbar ──────────────────────────────────────────────────────────
-        self._toolbar = ttk.Frame(self)
-        self._toolbar.pack(side="top", fill="x", padx=6, pady=(6, 0))
-        toolbar = self._toolbar
+        # ── Combined top section (2-row grid) ─────────────────────────────────
+        # Row 0: toolbar buttons | right-side controls
+        # Row 1: [← month →] [Heute] aligned under Löschen | fingerprint
+        top = ttk.Frame(self)
+        top.pack(side="top", fill="x", padx=6, pady=(6, 0))
+        top.columnconfigure(99, weight=1)
 
-        if self._app.can_edit:
-            ttk.Button(toolbar, text=i18n._("btn_add_toolbar"),
-                       command=self._add).pack(side="left", padx=2)
-            ttk.Button(toolbar, text=i18n._("btn_edit_toolbar"),
-                       command=self._edit).pack(side="left", padx=2)
-            ttk.Button(toolbar, text=i18n._("btn_delete_toolbar"),
-                       command=self._delete).pack(side="left", padx=2)
-        if self._app.is_admin:
-            ttk.Button(toolbar, text=i18n._("btn_settings_toolbar"),
-                       command=self._sync_settings).pack(side="left", padx=2)
-            ttk.Button(toolbar, text=i18n._("btn_users_toolbar"),
-                       command=self._manage_users).pack(side="left", padx=2)
-            ttk.Button(toolbar, text=i18n._("btn_fingerprint_toolbar"),
-                       width=3, command=self._show_fingerprint).pack(side="left", padx=2)
-        ttk.Button(toolbar, text=i18n._("btn_sync_toolbar"),
-                   command=self._pull_sync).pack(side="left", padx=2)
+        # Right-side controls — spans both toolbar row and nav row
+        right = ttk.Frame(top)
+        right.grid(row=0, column=99, rowspan=2, sticky="ne")
+
+        # Toolbar row items (packed horizontally at the top of right)
+        right_top = ttk.Frame(right)
+        right_top.pack(side="top", anchor="e", pady=(0, 2))
+        self._top_right = right_top  # used by show_update_banner
 
         self._version_var = tk.StringVar()
-        ttk.Label(toolbar, textvariable=self._version_var,
+        ttk.Label(right_top, textvariable=self._version_var,
                   foreground=theme.FG_DIM).pack(side="right", padx=8)
 
         if self._on_toggle_theme:
             icon = "☀" if settings.get("theme") == "dark" else "☾"
-            ttk.Button(toolbar, text=icon, width=3,
-                       command=self._on_toggle_theme).pack(side="right", padx=(0, 2))
+            ttk.Button(right_top, text=icon, width=3,
+                       command=self._on_toggle_theme).pack(side="right", padx=2)
 
-        ttk.Button(toolbar, text=i18n._("btn_app_settings"), width=3,
-                   command=self._open_settings).pack(side="right", padx=(0, 2))
+        ttk.Button(right_top, text=i18n._("btn_app_settings"), width=3,
+                   command=self._open_settings).pack(side="right", padx=2)
 
         if self._pending_update:
             self._update_btn = ttk.Button(
-                toolbar,
+                right_top,
                 text=i18n._("update_available_toolbar").format(
                     version=self._pending_update.version),
                 command=self._install_update)
@@ -104,19 +99,69 @@ class MainWindow(ttk.Frame):
         else:
             self._update_btn = None
 
-        # ── Month navigator ───────────────────────────────────────────────────
-        nav = ttk.Frame(self)
-        nav.pack(side="top", fill="x", padx=6, pady=(4, 0))
+        # Toolbar buttons (row 0, left side) — track column index
+        col = 0
+        if self._app.can_edit:
+            ttk.Button(top, text=i18n._("btn_add_toolbar"),
+                       command=self._add).grid(
+                row=0, column=col, padx=(0, 2), pady=(0, 2), sticky="ew")
+            col += 1
+            ttk.Button(top, text=i18n._("btn_edit_toolbar"),
+                       command=self._edit).grid(
+                row=0, column=col, padx=(0, 2), pady=(0, 2), sticky="ew")
+            col += 1
+            ttk.Button(top, text=i18n._("btn_delete_toolbar"),
+                       command=self._delete).grid(
+                row=0, column=col, padx=(0, 2), pady=(0, 2), sticky="ew")
+            col += 1
+        if self._app.is_admin:
+            ttk.Button(top, text=i18n._("btn_settings_toolbar"),
+                       command=self._sync_settings).grid(
+                row=0, column=col, padx=(0, 2), pady=(0, 2), sticky="ew")
+            col += 1
+            ttk.Button(top, text=i18n._("btn_users_toolbar"),
+                       command=self._manage_users).grid(
+                row=0, column=col, padx=(0, 2), pady=(0, 2), sticky="ew")
+            col += 1
+        ttk.Button(top, text=i18n._("btn_sync_toolbar"),
+                   command=self._pull_sync).grid(
+            row=0, column=col, padx=(0, 2), pady=(0, 2), sticky="ew")
 
-        ttk.Button(nav, text="←", width=3,
+        # Nav row (row 1): [← month →] spans cols 0-1, [Heute] at col 2 (under Löschen)
+        month_nav = ttk.Frame(top)
+        month_nav.grid(row=1, column=0, columnspan=2, sticky="ew",
+                       padx=(0, 2), pady=(0, 4))
+
+        ttk.Button(month_nav, text="←", width=3,
                    command=self._prev_month).pack(side="left")
+        ttk.Button(month_nav, text="→", width=3,
+                   command=self._next_month).pack(side="right")
         self._month_var = tk.StringVar()
-        ttk.Label(nav, textvariable=self._month_var,
-                  anchor="center", width=20).pack(side="left", padx=8)
-        ttk.Button(nav, text="→", width=3,
-                   command=self._next_month).pack(side="left")
-        ttk.Button(nav, text=i18n._("btn_today"),
-                   command=self._goto_today).pack(side="left", padx=(14, 0))
+        self._month_label = tk.Label(
+            month_nav,
+            textvariable=self._month_var,
+            anchor="center",
+            cursor="hand2",
+            bg=theme.BG,
+            fg=theme.FG,
+        )
+        self._month_label.pack(side="left", expand=True, fill="x", padx=4)
+        self._month_label.bind("<Button-1>", self._pick_date)
+
+        ttk.Button(top, text=i18n._("btn_today"),
+                   command=self._goto_today).grid(
+            row=1, column=2, padx=(0, 2), pady=(0, 4), sticky="ew")
+
+        # Fingerprint label (nav row — same styling as version label above)
+        if self._app.is_admin:
+            fp_label = tk.Label(
+                right, text="🔑",
+                cursor="hand2",
+                font=("Segoe UI Emoji", 9),
+                bg=theme.BG, fg=theme.FG_DIM,
+            )
+            fp_label.pack(side="top", anchor="e", padx=8, pady=(7, 0))
+            fp_label.bind("<Button-1>", lambda _: self._show_fingerprint())
 
         # ── Treeview ──────────────────────────────────────────────────────────
         tree_frame = ttk.Frame(self)
@@ -195,6 +240,17 @@ class MainWindow(ttk.Frame):
     def _goto_today(self):
         today = _date.today()
         self._view_year, self._view_month = today.year, today.month
+        self.refresh()
+
+    def _pick_date(self, _event=None):
+        dlg = DatePickerDialog(
+            self,
+            _date(self._view_year, self._view_month, 1),
+        )
+        self.wait_window(dlg)
+        if dlg.result is None:
+            return
+        self._view_year, self._view_month = dlg.result.year, dlg.result.month
         self.refresh()
 
     # ── Data / display ────────────────────────────────────────────────────────
@@ -433,7 +489,7 @@ class MainWindow(ttk.Frame):
         if self._update_btn is not None:
             return  # already shown
         self._update_btn = ttk.Button(
-            self._toolbar,
+            self._top_right,
             text=i18n._("update_available_toolbar").format(version=info.version),
             command=self._install_update)
         self._update_btn.pack(side="right", padx=(0, 4))

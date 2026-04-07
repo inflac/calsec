@@ -188,6 +188,17 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
         bordercolor=[("active", ACCENT), ("focus", ACCENT)],
     )
 
+    s.configure("Tight.TButton",
+        background=BG_ALT, foreground=FG,
+        bordercolor=BORDER, relief="flat",
+        padding=(8, 7), font=F,
+    )
+    s.map("Tight.TButton",
+        background=[("active", ACCENT_H), ("pressed", ACCENT), ("disabled", BG_PANEL)],
+        foreground=[("active", FG), ("disabled", FG_DIM)],
+        bordercolor=[("active", ACCENT), ("focus", ACCENT)],
+    )
+
     s.configure("TSeparator", background=BORDER)
 
     s.configure("TScrollbar",

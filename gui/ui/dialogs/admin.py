@@ -221,8 +221,8 @@ class UserManagementDialog(tk.Toplevel):
         self.transient(parent)
         self.title(i18n._("user_mgmt_title"))
         self.resizable(True, True)
-        self.minsize(600, 340)
-        self.geometry("660x420")
+        self.minsize(620, 400)
+        self.geometry("700x460")
         self._app = app
 
         ttk.Button(self, text=i18n._("btn_add_user_toolbar"),
@@ -245,12 +245,14 @@ class UserManagementDialog(tk.Toplevel):
         self._tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
 
-        ttk.Button(self, text=i18n._("btn_remove"),
-                   command=self._remove_selected).pack(pady=(4, 0))
-        ttk.Button(self, text=i18n._("btn_copy_onboarding"),
-                   command=self._copy_onboarding).pack(pady=(4, 0))
-        ttk.Button(self, text=i18n._("btn_close"),
-                   command=self.destroy).pack(pady=(4, 10))
+        actions = ttk.Frame(self)
+        actions.pack(fill="x", padx=10, pady=(4, 10))
+        ttk.Button(actions, text=i18n._("btn_remove"),
+                   command=self._remove_selected).pack(side="left")
+        ttk.Button(actions, text=i18n._("btn_copy_onboarding"),
+                   command=self._copy_onboarding).pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text=i18n._("btn_close"),
+                   command=self.destroy).pack(side="right")
 
         self._users: dict[str, dict] = {}  # iid → user dict
         self._refresh()

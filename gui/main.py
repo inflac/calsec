@@ -2,6 +2,7 @@
 
 import sys
 import os
+import threading
 import tkinter as tk
 from tkinter import ttk, PhotoImage
 
@@ -44,23 +45,36 @@ class LoginFrame(ttk.Frame):
         ttk.Label(self, textvariable=self._error_var,
                   foreground=theme.RED).pack()
 
-        ttk.Button(self, text=i18n._("btn_unlock"), command=self._submit).pack(pady=4)
+        self._btn_unlock = ttk.Button(
+            self, text=i18n._("btn_unlock"), command=self._submit)
+        self._btn_unlock.pack(pady=4)
 
         self._pw_entry.focus_set()
         self._pw_entry.bind("<Return>", lambda _: self._submit())
 
     def _submit(self):
         pw = self._pw_entry.get().encode() or None
+        self._btn_unlock.configure(state="disabled", text="…")
+        self._error_var.set("")
+        threading.Thread(target=self._do_login, args=(pw,), daemon=True).start()
+
+    def _do_login(self, pw: bytes | None):
+        def _err(msg: str):
+            self.after(0, lambda: (
+                self._error_var.set(msg),
+                self._pw_entry.delete(0, "end"),
+                self._btn_unlock.configure(
+                    state="normal", text=i18n._("btn_unlock")),
+            ))
 
         # 1. Decrypt the user's encryption private key
         try:
             kpriv_user = storage.load_user_private_key(self._user_hash, pw)
         except ValueError:
-            self._error_var.set(i18n._("err_wrong_password"))
-            self._pw_entry.delete(0, "end")
+            _err(i18n._("err_wrong_password"))
             return
         except FileNotFoundError as e:
-            self._error_var.set(str(e))
+            _err(str(e))
             return
 
         # 2. Derive sym_key_cal via ECIES
@@ -69,12 +83,10 @@ class LoginFrame(ttk.Frame):
             user_entry  = raw["users"][self._user_hash]
             sym_key_cal = ecies_decrypt(kpriv_user, user_entry["sym_key_cal_enc"])
         except Exception:
-            self._error_var.set(i18n._("err_key_derivation"))
+            _err(i18n._("err_key_derivation"))
             return
 
         # 3. Decrypt sign keys from calendar.json
-        #    admin_sign_key — admin only (user management + sync config)
-        #    edit_sign_key  — admin + editor (entry management)
         role = user_entry.get("role", "viewer")
         kpriv_admin_sign = None
         kpriv_edit_sign  = None
@@ -84,7 +96,7 @@ class LoginFrame(ttk.Frame):
                 pem = ecies_decrypt(kpriv_user, user_entry["admin_sign_key_enc"])
                 kpriv_admin_sign = load_pem_private_key(pem, password=None)
             except Exception:
-                self._error_var.set(i18n._("err_admin_key_decrypt"))
+                _err(i18n._("err_admin_key_decrypt"))
                 return
 
         if role in ("admin", "editor") and "edit_sign_key_enc" in user_entry:
@@ -92,7 +104,7 @@ class LoginFrame(ttk.Frame):
                 pem = ecies_decrypt(kpriv_user, user_entry["edit_sign_key_enc"])
                 kpriv_edit_sign = load_pem_private_key(pem, password=None)
             except Exception:
-                self._error_var.set(i18n._("err_edit_key_decrypt"))
+                _err(i18n._("err_edit_key_decrypt"))
                 return
 
         # 4. Build CalendarApp
@@ -102,10 +114,10 @@ class LoginFrame(ttk.Frame):
                               kpriv_edit_sign=kpriv_edit_sign,
                               role=role, user_hash=self._user_hash)
         except RuntimeError as e:
-            self._error_var.set(str(e))
+            _err(str(e))
             return
 
-        self._on_login(app)
+        self.winfo_toplevel().after(0, lambda: self._on_login(app))
 
 
 def _patch_toplevel_minsize() -> None:
