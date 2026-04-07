@@ -155,9 +155,9 @@ class MainWindow(ttk.Frame):
         # Fingerprint label (nav row — same styling as version label above)
         if self._app.is_admin:
             fp_label = tk.Label(
-                right, text="🔑",
+                right, text="FP",
                 cursor="hand2",
-                font=("Segoe UI Emoji", 9),
+                font=("Sans", 9),
                 bg=theme.BG, fg=theme.FG_DIM,
             )
             fp_label.pack(side="top", anchor="e", padx=8, pady=(7, 0))

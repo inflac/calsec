@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import sys
 
 import i18n
 import theme
@@ -106,18 +107,26 @@ class SettingsDialog(tk.Toplevel):
         _center_dialog(self, parent)
 
     def _toggle_update_widgets(self):
-        state = "normal" if self._upd_enabled.get() else "disabled"
+        enabled = self._upd_enabled.get()
+        state = "normal" if enabled else "disabled"
+        label_fg = theme.FG if enabled else theme.FG_DIM
         for child in self._mode_frame.winfo_children():
-            try:
-                child.configure(state=state)
-            except tk.TclError:
-                pass
-            for grandchild in child.winfo_children():
+            if isinstance(child, ttk.Label):
                 try:
-                    grandchild.configure(state=state)
+                    child.configure(foreground=label_fg)
                 except tk.TclError:
                     pass
-        if self._upd_enabled.get():
+            elif isinstance(child, (ttk.Radiobutton, ttk.Entry, ttk.Frame)):
+                try:
+                    child.configure(state=state)
+                except tk.TclError:
+                    pass
+                for grandchild in child.winfo_children():
+                    try:
+                        grandchild.configure(state=state)
+                    except tk.TclError:
+                        pass
+        if enabled:
             self._toggle_custom_entry()
 
     def _toggle_custom_entry(self):
@@ -251,9 +260,7 @@ class UpdateDialog(tk.Toplevel):
         self._progress.configure(mode="determinate", value=100)
         self.update()
         try:
-            # Stop the mainloop to close windows before starting new process
-            self.master.winfo_toplevel().quit()
-            updater.apply_update(tmp_path)  # spawns new process + sys.exit(0)
+            updater.apply_update(tmp_path)  # replaces binary, spawns new process, os._exit(0)
         except Exception as exc:
             self._on_error(str(exc))
 

@@ -247,5 +247,8 @@ def apply_update(new_binary: Path) -> None:
         [str(exe)] + sys.argv[1:],
         close_fds=True,
         start_new_session=True,  # detach from parent terminal
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     os._exit(0)  # hard exit — bypasses tkinter mainloop to close all windows

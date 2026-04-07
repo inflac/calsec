@@ -76,6 +76,46 @@ fingerprint = SHA-256(canonical_json({"sign_keys": sign_keys}))
 
 After the first trusted import, later syncs only accept files whose `sign_keys` exactly match the locally stored ones.
 
+### Fingerprint Concept
+
+The fingerprint is a cryptographic digest of the calendar's signing public keys. It serves as a short, human-verifiable representation of the trust anchor — if two parties compute the same fingerprint over the same `sign_keys` block, they know they are working with the same signing keys.
+
+#### Computation
+
+```text
+fingerprint = SHA-256(canonical_json({"sign_keys": sign_keys}))
+```
+
+Canonical JSON is deterministic: keys are sorted and no extra whitespace is added. Any change to the signing keys — whether key rotation or tampering — produces a completely different fingerprint.
+
+#### Purpose: Trust-on-First-Use (TOFU)
+
+When a new user imports the calendar for the first time, CalSec has no prior knowledge to verify the signing keys against. The keys are distributed inside `calendar.json` itself, so an active attacker who intercepts the first download could substitute their own keys. The fingerprint breaks this attack:
+
+1. The admin reads the fingerprint from the main window ("FP" button) and communicates it to the new user over a separate, trusted channel (e.g. Signal, in-person).
+2. The new user enters the expected fingerprint in the onboarding dialog before the first calendar download.
+3. CalSec downloads the file, computes the fingerprint from the received `sign_keys`, and only accepts the file if both values match *and* all signatures verify successfully.
+
+Without a matching fingerprint, the import is aborted — even if the signatures would technically verify against the received keys.
+
+#### After First Import
+
+Once a device has a locally stored copy of `sign_keys`, later syncs no longer use the fingerprint. Instead, CalSec directly checks that the `sign_keys` in every new download exactly match the stored ones. The fingerprint is only relevant for the initial TOFU step.
+
+#### Key Rotation
+
+If the admin regenerates the signing keys (e.g., after a suspected compromise), the fingerprint changes. All existing non-admin users will notice a mismatch on the next sync and reject the updated file. The admin must communicate the new fingerprint to every user individually before they can sync again.
+
+#### Display and Format
+
+The fingerprint is displayed as a 64-character hex string grouped in blocks of 4 for readability:
+
+```text
+abcd ef12 3456 7890 ...
+```
+
+Spaces are cosmetic only. Comparison strips whitespace and is case-insensitive. The fingerprint is accessible at any time via the "FP" button in the main window (visible to admins). The full value can be copied to the clipboard from the popup.
+
 ### Sign Key Distribution
 
 Signing private keys are stored inside `calendar.json` encrypted to each eligible user's public key via ECIES:
