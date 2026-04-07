@@ -30,13 +30,13 @@ To uninstall, run the installer again and choose **"Uninstall"**. You will be as
 
 **Admin setup** — On the very first start, CalSec prompts you to set up the calendar:
 
-- Enter your **email address**
+- Enter your **identifier** (for example a username or mail address)
 - Optionally set a **password** for your private key (required on every subsequent start)
 - Optionally configure a **WebDAV folder URL** for sync
 
 CalSec will generate your admin keypair and create the encrypted `calendar.json`.
 
-**Adding users** — Each new user installs CalSec and generates a keypair. They send their public key file (`.pub.pem`) and email address to the admin, who adds them via **User Management**.
+**Adding users** — Each new user installs CalSec and generates a keypair. They send their public key file (`.pub.pem`) and identifier to the admin, who adds them via **User Management**.
 
 **Non-admin first start** — If a local key exists but no `calendar.json` is present, CalSec prompts for WebDAV credentials to download the calendar once. Both signatures are verified before saving.
 
@@ -70,4 +70,6 @@ The desktop entry is stored via the Dotfiles feature at `/live/persistence/Tails
 > [!NOTE]
 > The **Dotfiles** feature must be enabled in Tails Persistent Storage settings for the app menu entry to survive a reboot.
 
-User preferences are stored at `/home/amnesia/Persistent/.calsec/preferences.json`.
+User preferences are stored at `/home/amnesia/Persistent/.calsec/settings.json`.
+
+Private key filenames use `sha256(identifier)[:16 bytes]`, encoded as 32 hex characters.

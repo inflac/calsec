@@ -25,6 +25,15 @@ import storage
 _WD_CODES = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
 
 
+def _get_identifier_enc(user_entry: dict) -> dict:
+    """Return the encrypted identifier field for current or legacy files."""
+    if "identifier_enc" in user_entry:
+        return user_entry["identifier_enc"]
+    if "email_enc" in user_entry:
+        return user_entry["email_enc"]
+    raise KeyError("User entry is missing identifier data.")
+
+
 def _nth_weekday_of_month(year: int, month: int, weekday: int, pos: int):
     """Return the pos-th occurrence (1-based; -1 = last) of weekday in month."""
     _, last_day = _cal_mod.monthrange(year, month)
@@ -217,7 +226,18 @@ class CalendarApp:
             # v3 or older — no split sign_keys present
             self.unsigned = True
 
+        if self._sync_config_enc is None:
+            self._sync_config = None
+        else:
+            try:
+                self._sync_config = json.loads(
+                    sym_decrypt(self._sym_key_cal, self._sync_config_enc))
+            except Exception as exc:
+                raise RuntimeError(
+                    "Sync configuration could not be decrypted.") from exc
+
         self.buffer = []
+        failed_entries = []
         for enc in self._entries_enc:
             try:
                 dec = decrypt_entry(enc, self._sym_key_cal)
@@ -226,8 +246,18 @@ class CalendarApp:
                     "timestamp": dec["timestamp"],
                     "data":      dec,
                 })
-            except Exception:
-                continue
+            except Exception as exc:
+                failed_entries.append(enc.get("id", "<unknown>"))
+                if len(failed_entries) == 1:
+                    first_error = exc
+        if failed_entries:
+            preview = ", ".join(failed_entries[:3])
+            if len(failed_entries) > 3:
+                preview += ", ..."
+            raise RuntimeError(
+                f"Failed to decrypt {len(failed_entries)} entr"
+                f"{'y' if len(failed_entries) == 1 else 'ies'}: {preview}"
+            ) from first_error
         self.buffer.sort(key=lambda x: x["timestamp"])
 
     # ── Properties ────────────────────────────────────────────────────────────
@@ -246,20 +276,15 @@ class CalendarApp:
 
     @property
     def sync_config(self):
-        if self._sync_config_enc is None:
-            return None
-        try:
-            return json.loads(sym_decrypt(self._sym_key_cal, self._sync_config_enc))
-        except Exception:
-            return None
+        return self._sync_config
 
     # ── Internal save ─────────────────────────────────────────────────────────
 
     def _save_and_sync(self, changed: str = "entries", on_sync_done=None):
         """Sign the changed section(s), save, reload, then push to Nextcloud.
 
-        changed: "entries" — re-signs entries+sync_config (requires kpriv_edit_sign)
-                 "users"   — re-signs users block (requires kpriv_admin_sign)
+        changed: "entries" — re-signs entries only (requires kpriv_edit_sign)
+                 "users"   — re-signs users+sync_config block (requires kpriv_admin_sign)
                  "both"    — re-signs both (requires both keys; used on key rotation)
         """
         if changed in ("entries", "both"):
@@ -324,8 +349,10 @@ class CalendarApp:
                     entry_date = datetime.strptime(data["date"], "%d.%m.%Y").date()
                     if month_start <= entry_date <= month_end:
                         result.append(data)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Entry {data.get('id', '<unknown>')} contains an invalid date."
+                    ) from exc
             else:
                 for d in _expand_recurrence(data, year, month):
                     date_str = d.strftime("%d.%m.%Y")
@@ -337,8 +364,10 @@ class CalendarApp:
                         try:
                             t = datetime.strptime(time_str, "%H:%M")
                             dt = dt.replace(hour=t.hour, minute=t.minute)
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            raise RuntimeError(
+                                f"Entry {data.get('id', '<unknown>')} contains an invalid time."
+                            ) from exc
                     instance["timestamp"]  = dt.timestamp()
                     instance["is_recurring"] = True
                     instance["_row_iid"] = (
@@ -514,22 +543,23 @@ class CalendarApp:
     # ── User management (admin only) ──────────────────────────────────────────
 
     def list_users(self) -> list[dict]:
-        """Return [{hash, email, role}] for all registered users."""
+        """Return [{hash, identifier, role}] for all registered users."""
         result = []
         for h, u in self._users.items():
-            email = ""
             try:
-                email = sym_decrypt(self._sym_key_cal, u["email_enc"]).decode()
-            except Exception:
-                pass
+                identifier = sym_decrypt(
+                    self._sym_key_cal, _get_identifier_enc(u)).decode()
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Failed to decrypt identifier for user {h}.") from exc
             result.append({
-                "hash":  h,
-                "email": email,
-                "role":  u.get("role", "viewer"),
+                "hash":       h,
+                "identifier": identifier,
+                "role":       u.get("role", "viewer"),
             })
         return result
 
-    def add_user(self, email: str, kpub_user=None,
+    def add_user(self, identifier: str, kpub_user=None,
                  password: bytes | None = None,
                  role: str = "viewer",
                  save_locally: bool = True) -> bytes | None:
@@ -543,9 +573,10 @@ class CalendarApp:
         if not self._is_admin:
             raise RuntimeError("Only admin can add users.")
 
-        h = storage.email_to_hash(email)
+        identifier = storage.normalize_identifier(identifier)
+        h = storage.identifier_to_hash(identifier)
         if h in self._users:
-            raise RuntimeError(f"User already exists: {email}")
+            raise RuntimeError(f"User already exists: {identifier}")
 
         kpriv_bytes = None
         if kpub_user is None:
@@ -568,7 +599,7 @@ class CalendarApp:
         user_entry = {
             "kpub_enc":        b64(kpub_bytes),
             "sym_key_cal_enc": ecies_encrypt(kpub_user, self._sym_key_cal),
-            "email_enc":       sym_encrypt(self._sym_key_cal, email.encode()),
+            "identifier_enc":  sym_encrypt(self._sym_key_cal, identifier.encode()),
             "role":            role,
         }
 
@@ -617,27 +648,34 @@ class CalendarApp:
             try:
                 data = decrypt_entry(enc, self._sym_key_cal)
                 new_entries.append(encrypt_entry(data, new_key))
-            except Exception:
-                new_entries.append(enc)  # keep corrupted entries as-is
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Failed to decrypt entry during key rotation: {enc.get('id', '<unknown>')}"
+                ) from exc
 
-        # Re-encrypt sym_key_cal and email_enc for all remaining users
+        # Re-encrypt sym_key_cal and identifier_enc for all remaining users
         for h, u in self._users.items():
             kpub = ec.EllipticCurvePublicKey.from_encoded_point(
                 ec.SECP256R1(), b64d(u["kpub_enc"]))
             u["sym_key_cal_enc"] = ecies_encrypt(kpub, new_key)
             try:
-                email_plain = sym_decrypt(self._sym_key_cal, u["email_enc"])
-                u["email_enc"] = sym_encrypt(new_key, email_plain)
-            except Exception:
-                pass
+                identifier_plain = sym_decrypt(
+                    self._sym_key_cal, _get_identifier_enc(u))
+                u["identifier_enc"] = sym_encrypt(new_key, identifier_plain)
+                u.pop("email_enc", None)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Failed to re-encrypt identifier for user {h}.") from exc
 
         # Re-encrypt sync config with new key
         if self._sync_config_enc:
             try:
                 sc_plain = sym_decrypt(self._sym_key_cal, self._sync_config_enc)
                 self._sync_config_enc = sym_encrypt(new_key, sc_plain)
-            except Exception:
-                self._sync_config_enc = None
+            except Exception as exc:
+                raise RuntimeError(
+                    "Failed to re-encrypt sync configuration during key rotation."
+                ) from exc
 
         self._sym_key_cal = new_key
         self._entries_enc = new_entries

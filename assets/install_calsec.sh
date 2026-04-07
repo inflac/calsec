@@ -185,26 +185,24 @@ generate_key() {
     echo ""
     echo "=== Key Generation ==="
 
-    read -p "Enter your email: " email
+    read -p "Enter your identifier: " identifier
 
-    if [[ -z "$email" ]]; then
-        echo "Email required."
+    local identifier_clean
+    identifier_clean=$(printf "%s" "$identifier" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+    if [[ -z "$identifier_clean" ]]; then
+        echo "Identifier required."
         exit 1
     fi
 
-    local email_clean
-    email_clean=$(echo "$email" | tr '[:upper:]' '[:lower:]' | tr -d ' ')
-
     local user_hash
-    local localpart
-    localpart=$(echo "$email_clean" | cut -d '@' -f1)
-    user_hash=$(echo -n "$localpart" | sha256sum | cut -d ' ' -f1 | cut -c1-16)
+    user_hash=$(printf "%s" "$identifier_clean" | sha256sum | cut -d ' ' -f1 | cut -c1-32)
 
     local priv_key="$KEY_DIR/$user_hash.pem"
     local pub_key="$PUB_DIR/$user_hash.pub.pem"
 
     if [ -f "$priv_key" ]; then
-        echo "Key already exists for this email: $priv_key"
+        echo "Key already exists for this identifier: $priv_key"
         exit 1
     fi
 
@@ -251,9 +249,12 @@ generate_key() {
     echo "Send this PUBLIC KEY to the admin:"
     echo "  $pub_key"
     echo ""
-    echo "And tell them your email: $email_clean"
+    echo "And tell them your identifier: $identifier_clean"
 }
 
+echo ""
+echo "If this device is for the admin's first setup, do NOT generate a keypair now."
+echo "Choose 'No' and let CalSec create the admin key on first launch."
 echo ""
 read -p "Generate keypair now? [y/N]: " choice
 choice=${choice:-N}
@@ -272,5 +273,5 @@ echo ""
 echo "Installation complete."
 echo ""
 echo "Next steps:"
-echo "1. Send your public key + email to the admin (after key generation)"
+echo "1. Send your public key + identifier to the admin (after key generation)"
 echo "2. Start CalSec from the Applications menu"

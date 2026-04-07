@@ -78,3 +78,22 @@ def test_channel_url_falls_back_when_empty(monkeypatch):
     import settings
     monkeypatch.setattr(settings, "_current", {"update_channel": ""})
     assert updater._channel_url() == updater.OFFICIAL_CHANNEL
+
+
+def test_verify_release_signature_fails_when_sig_missing(monkeypatch, tmp_path):
+    binary = tmp_path / "calsec-linux"
+    binary.write_bytes(b"binary")
+
+    class FakeResponse:
+        status_code = 404
+        text = ""
+
+        def raise_for_status(self):
+            return None
+
+    monkeypatch.setattr(updater, "_session", lambda: type("S", (), {
+        "get": staticmethod(lambda *a, **kw: FakeResponse())
+    })())
+
+    with pytest.raises(ValueError, match="missing"):
+        updater._verify_release_signature(binary, "https://example.com/calsec-linux")

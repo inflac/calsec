@@ -14,24 +14,28 @@ def isolate(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "DATA_FILE", str(tmp_path / "calendar.json"))
 
 
-# ── email_to_hash ─────────────────────────────────────────────────────────────
+# ── identifier_to_hash ────────────────────────────────────────────────────────
 
-def test_email_to_hash_length():
-    assert len(storage.email_to_hash("alice@example.com")) == 16
-
-
-def test_email_to_hash_uses_localpart_only():
-    h1 = storage.email_to_hash("alice@example.com")
-    h2 = storage.email_to_hash("alice@other.org")
-    assert h1 == h2
+def test_identifier_to_hash_length():
+    assert len(storage.identifier_to_hash("alice@example.com")) == 32
 
 
-def test_email_to_hash_case_insensitive():
-    assert storage.email_to_hash("Alice@example.com") == storage.email_to_hash("alice@example.com")
+def test_identifier_to_hash_uses_full_identifier():
+    h1 = storage.identifier_to_hash("alice@example.com")
+    h2 = storage.identifier_to_hash("alice@other.org")
+    assert h1 != h2
 
 
-def test_email_to_hash_different_users():
-    assert storage.email_to_hash("alice@x.com") != storage.email_to_hash("bob@x.com")
+def test_identifier_to_hash_trims_surrounding_whitespace():
+    assert storage.identifier_to_hash("  alice  ") == storage.identifier_to_hash("alice")
+
+
+def test_identifier_to_hash_is_case_sensitive():
+    assert storage.identifier_to_hash("Alice") != storage.identifier_to_hash("alice")
+
+
+def test_email_to_hash_alias_matches_identifier_hash():
+    assert storage.email_to_hash("alice@example.com") == storage.identifier_to_hash("alice@example.com")
 
 
 # ── find_user_key_hashes ──────────────────────────────────────────────────────
@@ -86,6 +90,19 @@ def test_save_and_load_roundtrip():
     data = {"version": 4, "entries": [{"id": "1"}], "sig_users": "abc"}
     storage.save_file(data)
     assert storage.load_file_raw() == data
+
+
+def test_save_file_uses_atomic_replace(monkeypatch):
+    target = {"called": False}
+    original_replace = storage.os.replace
+
+    def wrapped(src, dst):
+        target["called"] = True
+        return original_replace(src, dst)
+
+    monkeypatch.setattr(storage.os, "replace", wrapped)
+    storage.save_file({"version": 4, "entries": []})
+    assert target["called"] is True
 
 
 def test_save_file_raises_on_write_failure(monkeypatch):
@@ -172,16 +189,24 @@ def test_provision_calendar_structure():
 
 def test_provision_creates_admin_key_file():
     storage.provision("admin@example.com", b"password123", None)
-    h = storage.email_to_hash("admin@example.com")
+    h = storage.identifier_to_hash("admin@example.com")
     assert os.path.exists(os.path.join(storage.KEYS_DIR, f"{h}.pem"))
 
 
 def test_provision_admin_key_loadable():
     pw = b"testpassword"
     storage.provision("admin@example.com", pw, None)
-    h = storage.email_to_hash("admin@example.com")
+    h = storage.identifier_to_hash("admin@example.com")
     key = storage.load_user_private_key(h, pw)
     assert key is not None
+
+
+def test_provision_uses_identifier_field():
+    storage.provision("admin@example.com", b"password123", None)
+    data = storage.load_file_raw()
+    user = next(iter(data["users"].values()))
+    assert "identifier_enc" in user
+    assert "email_enc" not in user
 
 
 def test_provision_with_sync_data():

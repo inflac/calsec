@@ -94,7 +94,7 @@ class AddUserDialog(tk.Toplevel):
         self.title(i18n._("add_user_title"))
         self.resizable(False, False)
 
-        # result: (email, kpub_or_None, password_or_None, role)
+        # result: (identifier, kpub_or_None, password_or_None, role)
         # kpub_or_None — cryptography public key object if user provided their own
         # password_or_None — bytes if keypair should be generated with this password
         self.result = None
@@ -102,8 +102,8 @@ class AddUserDialog(tk.Toplevel):
         pad = _PAD
 
         ttk.Label(self, text=i18n._("lbl_email")).grid(row=0, column=0, sticky="e", **pad)
-        self._email = ttk.Entry(self, width=32)
-        self._email.grid(row=0, column=1, columnspan=2, sticky="w", **pad)
+        self._identifier = ttk.Entry(self, width=32)
+        self._identifier.grid(row=0, column=1, columnspan=2, sticky="w", **pad)
 
         ttk.Separator(self, orient="horizontal").grid(
             row=1, column=0, columnspan=3, sticky="ew", padx=10, pady=6)
@@ -161,7 +161,7 @@ class AddUserDialog(tk.Toplevel):
         ttk.Button(btn_frame, text=i18n._("btn_cancel"),
                    command=self.destroy).pack(side="left", padx=6)
 
-        self._email.focus_set()
+        self._identifier.focus_set()
         _center_dialog(self, parent)
 
     def _toggle_pw(self):
@@ -174,8 +174,8 @@ class AddUserDialog(tk.Toplevel):
     def _confirm(self):
         from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
-        email = self._email.get().strip()
-        if not email or "@" not in email:
+        identifier = self._identifier.get().strip()
+        if not identifier:
             show_error(self, i18n._("err_title"), i18n._("err_email_invalid"))
             return
 
@@ -183,7 +183,7 @@ class AddUserDialog(tk.Toplevel):
 
         if mode == "generate":
             if self._no_pw.get():
-                self.result = (email, None, None, self._role.get())
+                self.result = (identifier, None, None, self._role.get())
             else:
                 pw1 = self._pw1.get()
                 pw2 = self._pw2.get()
@@ -193,7 +193,7 @@ class AddUserDialog(tk.Toplevel):
                 if len(pw1) < 8:
                     show_error(self, i18n._("err_title"), i18n._("err_password_too_short"))
                     return
-                self.result = (email, None, pw1.encode(), self._role.get())
+                self.result = (identifier, None, pw1.encode(), self._role.get())
         else:
             pem_text = self._kpub_text.get("1.0", "end").strip().encode()
             if not pem_text:
@@ -204,7 +204,7 @@ class AddUserDialog(tk.Toplevel):
             except Exception:
                 show_error(self, i18n._("err_title"), i18n._("err_pubkey_invalid"))
                 return
-            self.result = (email, kpub, None, self._role.get())
+            self.result = (identifier, kpub, None, self._role.get())
 
         self.destroy()
 
@@ -229,12 +229,12 @@ class UserManagementDialog(tk.Toplevel):
         frame = ttk.Frame(self)
         frame.pack(fill="both", expand=True, padx=10, pady=4)
 
-        cols = ("email", "role")
+        cols = ("identifier", "role")
         self._tree = ttk.Treeview(frame, columns=cols, show="headings",
                                   selectmode="browse", height=8)
-        self._tree.heading("email", text=i18n._("col_email"))
+        self._tree.heading("identifier", text=i18n._("col_email"))
         self._tree.heading("role",  text=i18n._("col_role"))
-        self._tree.column("email", width=440)
+        self._tree.column("identifier", width=440)
         self._tree.column("role",  width=120, anchor="center")
 
         sb = ttk.Scrollbar(frame, orient="vertical", command=self._tree.yview)
@@ -258,7 +258,7 @@ class UserManagementDialog(tk.Toplevel):
         role_labels = {"admin": "Admin", "editor": "Editor", "viewer": "Viewer"}
         for u in self._app.list_users():
             iid = self._tree.insert("", "end", tags=("row",), values=(
-                u["email"] or f"{u['hash']}",
+                u["identifier"] or f"{u['hash']}",
                 role_labels.get(u["role"], u["role"]),
             ))
             self._users[iid] = u
@@ -272,14 +272,14 @@ class UserManagementDialog(tk.Toplevel):
         if dlg.result is None:
             return
 
-        email, kpub, password, role = dlg.result
+        identifier, kpub, password, role = dlg.result
 
         save_path = None
         if kpub is None:
-            h = storage.email_to_hash(email)
+            h = storage.identifier_to_hash(identifier)
             save_path = fd.asksaveasfilename(
                 parent=self,
-                title=i18n._("save_key_title").format(email=email),
+                title=i18n._("save_key_title").format(identifier=identifier),
                 defaultextension=".pem",
                 filetypes=[(i18n._("file_type_pem"), "*.pem")],
                 initialfile=f"{h}.pem",
@@ -288,16 +288,16 @@ class UserManagementDialog(tk.Toplevel):
                 return  # user cancelled — nothing written yet
 
         try:
-            kpriv_bytes = self._app.add_user(email, kpub, password, role=role,
-                                             save_locally=save_path is None)
+            kpriv_bytes = self._app.add_user(
+                identifier, kpub, password, role=role,
+                save_locally=save_path is None)
         except RuntimeError as e:
             show_error(self, i18n._("err_title"), str(e))
             return
 
         if kpriv_bytes and save_path:
             try:
-                with open(save_path, "wb") as f:
-                    f.write(kpriv_bytes)
+                storage._atomic_write_bytes(save_path, kpriv_bytes, mode=0o600)
                 show_info(self, i18n._("key_saved_title"),
                     i18n._("key_saved_body").format(path=save_path))
             except Exception as exc:
@@ -313,7 +313,7 @@ class UserManagementDialog(tk.Toplevel):
         u = self._users.get(sel[0])
         if u is None:
             return
-        label = u["email"] or u["hash"][:16]
+        label = u["identifier"] or u["hash"][:16]
         if not ask_yes_no(self, i18n._("confirm_remove_title"),
             i18n._("confirm_remove_body").format(label=label)):
             return

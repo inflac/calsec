@@ -97,8 +97,8 @@ def pem_to_public_key(pem_str: str):
 
 # ── File signing — two independent sections ───────────────────────────────────
 #
-# sig_users   covers sign_keys + users  → signed with kpriv_admin_sign
-# sig_entries covers entries + sync_config → signed with kpriv_edit_sign
+# sig_users   covers sign_keys + users + sync_config → signed with kpriv_admin_sign
+# sig_entries covers entries only → signed with kpriv_edit_sign
 #
 # Separating the two signatures means:
 #   - Editors (kpriv_edit_sign only) can sign entry changes but cannot forge user changes.

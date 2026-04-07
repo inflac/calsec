@@ -4,6 +4,7 @@ Persistent app settings stored in ~/.calsec/settings.json.
 
 import json
 import os
+import tempfile
 
 _DIR  = os.path.join(os.path.expanduser("~"), ".calsec")
 _FILE = os.path.join(_DIR, "settings.json")
@@ -30,8 +31,16 @@ def load() -> None:
 
 def save() -> None:
     os.makedirs(_DIR, exist_ok=True)
-    with open(_FILE, "w") as f:
-        json.dump(_current, f, indent=2)
+    fd, tmp_path = tempfile.mkstemp(prefix=".tmp-", dir=_DIR)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(_current, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, _FILE)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 def get(key: str):

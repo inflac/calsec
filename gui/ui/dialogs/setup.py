@@ -150,11 +150,11 @@ class FetchCalendarDialog(tk.Toplevel):
 
 
 class ProvisionDialog(tk.Toplevel):
-    """Shown on first start. Collects admin email + password + optional Nextcloud config.
+    """Shown on first start. Collects admin identifier + password + optional Nextcloud config.
 
     result = None              → cancelled
     result = ("__reload__",)  → language changed, caller should reopen
-    result = (email, pw, sync) → confirmed
+    result = (identifier, pw, sync) → confirmed
     """
 
     def __init__(self, parent):
@@ -185,8 +185,8 @@ class ProvisionDialog(tk.Toplevel):
             row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(8, 2))
 
         ttk.Label(self, text=i18n._("lbl_email")).grid(row=3, column=0, sticky="e", **pad)
-        self._email = ttk.Entry(self, width=30)
-        self._email.grid(row=3, column=1, sticky="w", **pad)
+        self._identifier = ttk.Entry(self, width=30)
+        self._identifier.grid(row=3, column=1, sticky="w", **pad)
 
         self._no_pw = tk.BooleanVar(value=False)
         ttk.Checkbutton(self, text=i18n._("lbl_no_password"),
@@ -234,7 +234,7 @@ class ProvisionDialog(tk.Toplevel):
         ttk.Button(btn_frame, text=i18n._("btn_cancel"),
                    command=self.destroy).pack(side="left", padx=6)
 
-        self._email.focus_set()
+        self._identifier.focus_set()
         self.bind("<Return>", lambda _: self._confirm())
         _center_dialog(self, parent)
 
@@ -255,8 +255,8 @@ class ProvisionDialog(tk.Toplevel):
         self._pw_label2.configure(foreground=dim)
 
     def _confirm(self):
-        email = self._email.get().strip()
-        if not email or "@" not in email:
+        identifier = self._identifier.get().strip()
+        if not identifier:
             show_error(self, i18n._("err_title"), i18n._("err_email_invalid"))
             return
 
@@ -292,5 +292,5 @@ class ProvisionDialog(tk.Toplevel):
                 "password":   self._nc_pw.get(),
             }
 
-        self.result = (email, password, sync_data)
+        self.result = (identifier, password, sync_data)
         self.destroy()

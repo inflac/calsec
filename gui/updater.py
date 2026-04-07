@@ -175,7 +175,7 @@ def _verify_release_signature(binary: Path, binary_url: str) -> None:
     The signature file is expected at <binary_url>.sig.
     Behaviour:
       - Public key not configured → skip (no-op, logs nothing)
-      - Signature file not found (HTTP 404) → skip
+      - Signature file not found (HTTP 404) → fail closed
       - Signature present but invalid → raises ValueError
     """
     if not _RELEASE_PUBLIC_KEY_PEM:
@@ -186,7 +186,10 @@ def _verify_release_signature(binary: Path, binary_url: str) -> None:
     sig_url = binary_url + ".sig"
     resp = _session().get(sig_url, timeout=15)
     if resp.status_code == 404:
-        return  # no .sig file published — skip verification
+        raise ValueError(
+            "Signature verification failed — the release signature file is missing. "
+            "Aborting update."
+        )
     resp.raise_for_status()
     sig_b64 = resp.text.strip()
 

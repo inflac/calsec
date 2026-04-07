@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import sys
+import tempfile
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -26,10 +27,20 @@ DATA_FILE = os.path.join(BASE_DIR, "calendar.json")
 # Helpers
 # ---------------------------------------------------------------------------
 
+def normalize_identifier(identifier: str) -> str:
+    """Canonicalize a user identifier for storage and hashing."""
+    return identifier.strip()
+
+
+def identifier_to_hash(identifier: str) -> str:
+    """First 16 bytes of sha256(identifier) as 32 hex chars."""
+    normalized = normalize_identifier(identifier)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:32]
+
+
 def email_to_hash(email: str) -> str:
-    """First 16 hex chars of sha256(localpart) — user identifier and key file name."""
-    localpart = email.split("@")[0].lower()
-    return hashlib.sha256(localpart.encode()).hexdigest()[:16]
+    """Backward-compatible alias for identifier_to_hash()."""
+    return identifier_to_hash(email)
 
 
 # ---------------------------------------------------------------------------
@@ -59,16 +70,35 @@ def load_file_raw() -> dict:
     if not os.path.exists(DATA_FILE):
         return {}
     try:
-        with open(DATA_FILE) as f:
+        with open(DATA_FILE, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         raise RuntimeError("Failed to read calendar file.")
 
 
+def _atomic_write_bytes(path: str, data: bytes, mode: int | None = None) -> None:
+    directory = os.path.dirname(path) or "."
+    os.makedirs(directory, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(prefix=".tmp-", dir=directory)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        if mode is not None:
+            os.chmod(tmp_path, mode)
+        os.replace(tmp_path, path)
+        if mode is not None:
+            os.chmod(path, mode)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
 def save_file(data: dict) -> None:
     try:
-        with open(DATA_FILE, "w") as f:
-            json.dump(data, f, indent=2)
+        payload = json.dumps(data, indent=2).encode("utf-8")
+        _atomic_write_bytes(DATA_FILE, payload)
     except Exception:
         raise RuntimeError("Failed to write calendar file.")
 
@@ -85,10 +115,7 @@ def _write_private_key(path: str, kpriv, password: bytes | None) -> None:
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=enc_algo,
     )
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "wb") as f:
-        f.write(pem)
-    os.chmod(path, 0o600)
+    _atomic_write_bytes(path, pem, mode=0o600)
 
 
 def load_user_private_key(user_hash_str: str, password: bytes | None):
@@ -110,13 +137,13 @@ def save_user_key_file(user_hash_str: str, kpriv, password: bytes | None) -> Non
 # Provisioning (first-time admin setup)
 # ---------------------------------------------------------------------------
 
-def provision(admin_email: str, admin_password: bytes,
+def provision(admin_identifier: str, admin_password: bytes,
               sync_data: dict | None) -> None:
     """Generate two signing keypairs + admin encryption keypair, write calendar.json v4.
 
     Two sign keys with separate authority:
-      kpriv_admin_sign — signs the users block; stored ECIES-encrypted for admins only.
-      kpriv_edit_sign  — signs entries+sync_config; stored ECIES-encrypted for admins+editors.
+      kpriv_admin_sign — signs the users+sync_config block; stored ECIES-encrypted for admins only.
+      kpriv_edit_sign  — signs entries; stored ECIES-encrypted for admins+editors.
     Both public keys are embedded in sign_keys in calendar.json.
     """
     from crypto import b64, ecies_encrypt, sym_encrypt, sign_users, sign_entries
@@ -131,7 +158,7 @@ def provision(admin_email: str, admin_password: bytes,
         serialization.NoEncryption(),
     )
 
-    # Edit sign keypair — controls entries and sync_config
+    # Edit sign keypair — controls entries
     kpriv_edit_sign = ec.generate_private_key(ec.SECP256R1())
     edit_sign_key_pem = kpriv_edit_sign.private_bytes(
         serialization.Encoding.PEM,
@@ -154,7 +181,8 @@ def provision(admin_email: str, admin_password: bytes,
     # Admin encryption keypair (used to derive sym_key_cal via ECIES)
     kpriv_admin = ec.generate_private_key(ec.SECP256R1())
     kpub_admin  = kpriv_admin.public_key()
-    h = email_to_hash(admin_email)
+    admin_identifier = normalize_identifier(admin_identifier)
+    h = identifier_to_hash(admin_identifier)
     save_user_key_file(h, kpriv_admin, admin_password)
 
     # Calendar symmetric key
@@ -167,7 +195,7 @@ def provision(admin_email: str, admin_password: bytes,
     admin_entry = {
         "kpub_enc":           b64(kpub_admin_bytes),
         "sym_key_cal_enc":    ecies_encrypt(kpub_admin, sym_key_cal),
-        "email_enc":          sym_encrypt(sym_key_cal, admin_email.encode()),
+        "identifier_enc":     sym_encrypt(sym_key_cal, admin_identifier.encode()),
         "role":               "admin",
         "admin_sign_key_enc": ecies_encrypt(kpub_admin, admin_sign_key_pem),
         "edit_sign_key_enc":  ecies_encrypt(kpub_admin, edit_sign_key_pem),

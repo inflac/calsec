@@ -28,8 +28,8 @@ CalSec uses a layered encryption model. All cryptographic operations use standar
 | --- | --------- | ------- |
 | User keypair | EC SECP256R1 | Per-user encryption identity |
 | `sym_key_cal` | AES-256 (random) | Encrypts all calendar entries |
-| `kpriv_admin_sign` | EC SECP256R1 | Signs the users block (admin only) |
-| `kpriv_edit_sign` | EC SECP256R1 | Signs entries and sync config (admin + editors) |
+| `kpriv_admin_sign` | EC SECP256R1 | Signs users + sync config (admin only) |
+| `kpriv_edit_sign` | EC SECP256R1 | Signs entries (admin + editors) |
 
 ### Calendar Symmetric Key Distribution
 
@@ -58,7 +58,7 @@ sig_users   = ECDSA(kpriv_admin_sign,  sign_keys || users || sync_config)
 sig_entries = ECDSA(kpriv_edit_sign,   entries)
 ```
 
-This separation means editors can sign entry changes without being able to forge user or access-control changes. Only admins hold `kpriv_admin_sign`.
+This separation means editors can sign entry changes without being able to forge user or access-control changes. The sync configuration is also covered by `sig_users`, so it can be decrypted by all users who hold `sym_key_cal` but only admins can authorize changes to it.
 
 ### Sign Key Distribution
 
@@ -77,13 +77,13 @@ calendar.json
 │   └── <hash>
 │       ├── kpub_enc           (user's EC public key)
 │       ├── sym_key_cal_enc    (ECIES: sym_key_cal → user)
-│       ├── email_enc          (AES-256-GCM with sym_key_cal)
+│       ├── identifier_enc     (AES-256-GCM with sym_key_cal)
 │       ├── role
 │       ├── edit_sign_key_enc  (ECIES, editors + admins)
 │       └── admin_sign_key_enc (ECIES, admins only)
 ├── entries[]
 │   └── { id, entry_key_enc, data_enc }
-├── sync_config        (AES-256-GCM with sym_key_cal, admins only)
+├── sync_config        (AES-256-GCM with sym_key_cal, readable by all users)
 ├── sig_users          (ECDSA over sign_keys + users + sync_config)
 └── sig_entries        (ECDSA over entries)
 ```

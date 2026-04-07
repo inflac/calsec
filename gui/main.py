@@ -245,9 +245,9 @@ class Application(tk.Tk):
 
             break
 
-        email, password, sync_data = dlg.result
+        identifier, password, sync_data = dlg.result
         try:
-            storage.provision(email, password, sync_data)
+            storage.provision(identifier, password, sync_data)
         except RuntimeError as e:
             show_error(self, i18n._("err_title"), str(e))
             self.destroy()

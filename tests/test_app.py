@@ -10,8 +10,8 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from gui.app import CalendarApp
 
 
-ADMIN_EMAIL = "admin@example.com"
-ADMIN_PW    = b"testpassword123"
+ADMIN_IDENTIFIER = "admin@example.com"
+ADMIN_PW         = b"testpassword123"
 
 
 @pytest.fixture()
@@ -21,9 +21,9 @@ def provisioned(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "KEYS_DIR",  str(tmp_path / "keys"))
     monkeypatch.setattr(storage, "DATA_FILE", str(tmp_path / "calendar.json"))
 
-    storage.provision(ADMIN_EMAIL, ADMIN_PW, None)
+    storage.provision(ADMIN_IDENTIFIER, ADMIN_PW, None)
 
-    h = storage.email_to_hash(ADMIN_EMAIL)
+    h = storage.identifier_to_hash(ADMIN_IDENTIFIER)
     kpriv_user = storage.load_user_private_key(h, ADMIN_PW)
 
     raw        = storage.load_file_raw()
@@ -176,8 +176,8 @@ def test_add_user_registers_new_user(provisioned):
     cal, _ = provisioned
     kpriv_bytes = cal.add_user("newuser@example.com", None, b"userpass123", role="viewer")
     users = cal.list_users()
-    emails = [u["email"] for u in users]
-    assert "newuser@example.com" in emails
+    identifiers = [u["identifier"] for u in users]
+    assert "newuser@example.com" in identifiers
     assert kpriv_bytes is not None
 
 
@@ -186,8 +186,8 @@ def test_add_user_with_external_key(provisioned):
     kpriv = ec.generate_private_key(ec.SECP256R1())
     kpub  = kpriv.public_key()
     cal.add_user("external@example.com", kpub, None, role="viewer")
-    emails = [u["email"] for u in cal.list_users()]
-    assert "external@example.com" in emails
+    identifiers = [u["identifier"] for u in cal.list_users()]
+    assert "external@example.com" in identifiers
 
 
 def test_add_user_non_admin_raises(provisioned):
@@ -200,10 +200,10 @@ def test_add_user_non_admin_raises(provisioned):
 def test_remove_user(provisioned):
     cal, _ = provisioned
     cal.add_user("todelete@example.com", None, b"pass12345", role="viewer")
-    h = storage.email_to_hash("todelete@example.com")
+    h = storage.identifier_to_hash("todelete@example.com")
     cal.remove_user(h)
-    emails = [u["email"] for u in cal.list_users()]
-    assert "todelete@example.com" not in emails
+    identifiers = [u["identifier"] for u in cal.list_users()]
+    assert "todelete@example.com" not in identifiers
 
 
 def test_remove_self_raises(provisioned):

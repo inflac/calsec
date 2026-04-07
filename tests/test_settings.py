@@ -103,6 +103,19 @@ def test_set_creates_directory():
     assert os.path.exists(settings._DIR)
 
 
+def test_save_uses_atomic_replace(monkeypatch):
+    target = {"called": False}
+    original_replace = settings.os.replace
+
+    def wrapped(src, dst):
+        target["called"] = True
+        return original_replace(src, dst)
+
+    monkeypatch.setattr(settings.os, "replace", wrapped)
+    settings.save()
+    assert target["called"] is True
+
+
 # ── save / load roundtrip ─────────────────────────────────────────────────────
 
 def test_save_load_roundtrip():
