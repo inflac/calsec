@@ -34,7 +34,7 @@ To uninstall, run the installer again and choose **"Uninstall"**. You will be as
 - Optionally set a **password** for your private key (required on every subsequent start). Without a password the private key is stored unencrypted on disk — strongly recommended on Tails and any shared or portable device.
 - Optionally configure a **WebDAV folder URL** for sync
 
-CalSec will generate your admin keypair and create the encrypted `calendar.json`. After setup, CalSec shows the calendar signing fingerprint. Share this fingerprint with new users over a separate trusted channel.
+CalSec will generate your admin keypair and create the encrypted `calendar.json`. After setup, CalSec shows the calendar signing fingerprint in a copyable popup. Share this fingerprint with new users over a separate trusted channel.
 
 **User onboarding** — The recommended order for new users is:
 
@@ -52,6 +52,8 @@ CalSec will generate your admin keypair and create the encrypted `calendar.json`
 - the current signing fingerprint shown by CalSec
 
 CalSec can standardize this handoff for you: in **User Management**, select a user and use **Copy Onboarding** to copy a ready-to-send onboarding message containing the sync data, signing fingerprint, and user instructions.
+
+If you remove a user with role `editor` or `admin`, or demote a user so they lose editor/admin signing rights, CalSec rotates the affected signing keys. This changes the signing fingerprint. The new fingerprint must then be redistributed to all remaining users over a separate trusted channel before they can trust future syncs.
 
 **Non-admin first start** — If a local key exists but no `calendar.json` is present, CalSec prompts for WebDAV credentials and the expected signing fingerprint. The calendar is only saved if the fingerprint matches and both signatures verify successfully.
 
@@ -97,6 +99,6 @@ The desktop entry is stored via the Dotfiles feature at `/live/persistence/Tails
 > [!NOTE]
 > The **Dotfiles** feature must be enabled in Tails Persistent Storage settings for the app menu entry to survive a reboot.
 
-User preferences are stored at `/home/amnesia/Persistent/.calsec/settings.json`.
+On Tails, user preferences are stored via Dotfiles at `/live/persistence/TailsData_unlocked/dotfiles/.calsec/settings.json`.
 
 Private key filenames use `sha256(identifier)[:16 bytes]`, encoded as 32 hex characters.

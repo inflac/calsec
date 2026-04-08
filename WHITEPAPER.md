@@ -54,11 +54,11 @@ Using the entry ID as Additional Authenticated Data (AAD) prevents an attacker f
 `calendar.json` contains two independent ECDSA-SHA256 signatures:
 
 ```text
-sig_users   = ECDSA(kpriv_admin_sign,  sign_keys || users || sync_config)
-sig_entries = ECDSA(kpriv_edit_sign,   entries)
+sig_users   = ECDSA(kpriv_admin_sign,  version_users || sign_keys || users || sync_config)
+sig_entries = ECDSA(kpriv_edit_sign,   version_entries || entries)
 ```
 
-This separation means editors can sign entry changes without being able to forge user or access-control changes. The sync configuration is also covered by `sig_users`, so it can be decrypted by all users who hold `sym_key_cal` but only admins can authorize changes to it.
+This separation means editors can sign entry changes without being able to forge user or access-control changes. The sync configuration is also covered by `sig_users`, so it can be decrypted by all users who hold `sym_key_cal` but only admins can authorize changes to it. The per-section revision counters `version_users` and `version_entries` are signed as well, so rollback/replay attacks cannot present old content as a newer revision.
 
 ### First-Import Trust
 
@@ -74,7 +74,7 @@ The fingerprint is defined as:
 fingerprint = SHA-256(canonical_json({"sign_keys": sign_keys}))
 ```
 
-After the first trusted import, later syncs only accept files whose `sign_keys` exactly match the locally stored ones.
+After the first trusted import, later syncs continue to verify signatures against the locally stored trust anchor. If `sign_keys` change, CalSec requires the user to confirm the new fingerprint before accepting the new file.
 
 ### Fingerprint Concept
 
@@ -100,11 +100,11 @@ Without a matching fingerprint, the import is aborted — even if the signatures
 
 #### After First Import
 
-Once a device has a locally stored copy of `sign_keys`, later syncs no longer use the fingerprint. Instead, CalSec directly checks that the `sign_keys` in every new download exactly match the stored ones. The fingerprint is only relevant for the initial TOFU step.
+Once a device has a locally stored copy of `sign_keys`, later syncs normally verify against that stored trust anchor without asking for the fingerprint again. If a later download contains different `sign_keys`, CalSec treats this as a signing-key rotation and requires the user to confirm the new fingerprint before accepting the updated file.
 
 #### Key Rotation
 
-If the admin regenerates the signing keys (e.g., after a suspected compromise), the fingerprint changes. All existing non-admin users will notice a mismatch on the next sync and reject the updated file. The admin must communicate the new fingerprint to every user individually before they can sync again.
+If the admin regenerates the signing keys (e.g., after a suspected compromise), the fingerprint changes. The same applies when an `admin` loses admin signing rights, or when an `editor`/`admin` loses edit signing rights: the affected signing keys are rotated and the fingerprint changes. The admin must communicate the new fingerprint to every remaining user individually before they can trust later syncs again.
 
 #### Display and Format
 
@@ -128,6 +128,8 @@ Signing private keys are stored inside `calendar.json` encrypted to each eligibl
 ```text
 calendar.json
 ├── version
+├── version_users
+├── version_entries
 ├── sign_keys          (public signing keys — readable by all)
 ├── users
 │   └── <hash>
@@ -140,8 +142,8 @@ calendar.json
 ├── entries[]
 │   └── { id, entry_key_enc, data_enc }
 ├── sync_config        (AES-256-GCM with sym_key_cal, readable by all users)
-├── sig_users          (ECDSA over sign_keys + users + sync_config)
-└── sig_entries        (ECDSA over entries)
+├── sig_users          (ECDSA over version_users + sign_keys + users + sync_config)
+└── sig_entries        (ECDSA over version_entries + entries)
 ```
 
 ## Release Integrity
