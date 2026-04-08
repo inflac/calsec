@@ -243,7 +243,7 @@ class Application(tk.Tk):
         ))
 
     def _show_provision(self):
-        from ui.dialogs import ProvisionDialog, show_error, show_info
+        from ui.dialogs import ProvisionDialog, show_copyable_text, show_error
         while True:
             dlg = ProvisionDialog(self)
             self.wait_window(dlg)
@@ -271,8 +271,13 @@ class Application(tk.Tk):
         fingerprint = format_fingerprint(sign_keys_fingerprint(raw["sign_keys"]))
         body = (
             i18n._("setup_done_body_pw") if password else i18n._("setup_done_body")
-        ) + "\n\n" + i18n._("setup_done_fingerprint").format(fingerprint=fingerprint)
-        show_info(self, i18n._("setup_done_title"), body)
+        ) + "\n\n" + i18n._("fingerprint_copy_hint")
+        show_copyable_text(
+            self,
+            i18n._("setup_done_title"),
+            body,
+            fingerprint,
+        )
         self._show_login()
 
     def _show_main(self, app: CalendarApp):
@@ -283,7 +288,10 @@ class Application(tk.Tk):
         self._switch_to(main_win)
         # Auto-pull after login so the user always sees the latest version
         if app.sync_config is not None:
-            app.sync_pull(on_done=main_win._on_sync_done)
+            app.sync_pull(
+                on_done=main_win._on_sync_done,
+                request_trust=main_win._request_sign_key_trust,
+            )
 
     def _toggle_theme(self):
         new_mode = "light" if settings.get("theme") == "dark" else "dark"

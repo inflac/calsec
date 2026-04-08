@@ -107,6 +107,37 @@ def ask_yes_no(parent: tk.BaseWidget, title: str, message: str) -> bool:
     return result[0]
 
 
+def ask_text(parent: tk.BaseWidget, title: str, message: str,
+             initial_value: str = "") -> str | None:
+    result = [None]
+    dlg = _make_dialog(parent, title)
+    ttk.Label(dlg, text=message, wraplength=420,
+              justify="center").pack(padx=24, pady=(20, 12))
+
+    entry = ttk.Entry(dlg, width=42)
+    entry.pack(fill="x", padx=24, pady=(0, 12))
+    entry.insert(0, initial_value)
+    entry.focus_set()
+    entry.selection_range(0, "end")
+
+    btn_frame = ttk.Frame(dlg)
+    btn_frame.pack(pady=(0, 16))
+
+    def _submit():
+        result[0] = entry.get().strip()
+        dlg.destroy()
+
+    ttk.Button(btn_frame, text=i18n._("btn_ok"),
+               command=_submit).pack(side="left", padx=6)
+    ttk.Button(btn_frame, text=i18n._("btn_cancel"),
+               command=dlg.destroy).pack(side="left", padx=6)
+
+    entry.bind("<Return>", lambda _: _submit())
+    _center_dialog(dlg, parent)
+    parent.winfo_toplevel().wait_window(dlg)
+    return result[0]
+
+
 def copy_to_clipboard(parent: tk.BaseWidget, text: str) -> None:
     root = parent.winfo_toplevel()
     root.clipboard_clear()

@@ -11,6 +11,7 @@ from ui.dialogs.base import (
     ask_yes_no,
     copy_to_clipboard,
     show_error,
+    show_copyable_text,
     show_info,
 )
 
@@ -371,6 +372,14 @@ class UserManagementDialog(tk.Toplevel):
                     i18n._("err_save_failed").format(exc=exc))
         self._refresh()
 
+    def _show_rotated_fingerprint(self):
+        show_copyable_text(
+            self,
+            i18n._("fingerprint_title"),
+            i18n._("fingerprint_rotated_hint"),
+            format_fingerprint(self._app.fingerprint),
+        )
+
     def _remove_selected(self):
         sel = self._tree.selection()
         if not sel:
@@ -380,8 +389,11 @@ class UserManagementDialog(tk.Toplevel):
         if u is None:
             return
         label = u["identifier"] or u["hash"][:16]
+        body = i18n._("confirm_remove_body").format(label=label)
+        if u["role"] in ("admin", "editor"):
+            body += "\n\n" + i18n._("fingerprint_will_change_hint")
         if not ask_yes_no(self, i18n._("confirm_remove_title"),
-            i18n._("confirm_remove_body").format(label=label)):
+            body):
             return
         try:
             self._app.remove_user(u["hash"])
@@ -389,6 +401,8 @@ class UserManagementDialog(tk.Toplevel):
             show_error(self, i18n._("err_title"), str(e))
             return
         self._refresh()
+        if u["role"] in ("admin", "editor"):
+            self._show_rotated_fingerprint()
 
     def _change_role_selected(self):
         sel = self._tree.selection()
@@ -406,6 +420,10 @@ class UserManagementDialog(tk.Toplevel):
             return
 
         new_role = dlg.result
+        fingerprint_changed = (
+            (u["role"] == "admin" and new_role != "admin")
+            or (u["role"] in ("admin", "editor") and new_role not in ("admin", "editor"))
+        )
         try:
             self._app.change_user_role(u["hash"], new_role)
         except RuntimeError as e:
@@ -419,8 +437,13 @@ class UserManagementDialog(tk.Toplevel):
             i18n._("role_changed_body").format(
                 label=u["identifier"] or u["hash"][:16],
                 role=new_role.capitalize(),
+            ) + (
+                "\n\n" + i18n._("fingerprint_redistribute_hint")
+                if fingerprint_changed else ""
             ),
         )
+        if fingerprint_changed:
+            self._show_rotated_fingerprint()
 
     def _copy_onboarding(self):
         from app import build_onboarding_text

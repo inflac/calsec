@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import threading
 import tkinter as tk
 from datetime import date as _date
 from datetime import datetime
@@ -16,6 +17,7 @@ from ui.dialogs import (
     SyncConfigDialog,
     UpdateDialog,
     UserManagementDialog,
+    ask_text,
     ViewEntryDialog,
     ask_yes_no,
     show_copyable_text,
@@ -63,9 +65,6 @@ class MainWindow(ttk.Frame):
 
         self._build_ui()
         self._initial_refresh()
-
-        if app.unsigned:
-            self._set_status(i18n._("warn_unsigned"), error=True)
 
     def _build_ui(self):
         # ── Combined top section (2-row grid) ─────────────────────────────────
@@ -507,10 +506,30 @@ class MainWindow(ttk.Frame):
 
     def _pull_sync(self):
         self._set_status(i18n._("status_syncing"))
-        self._app.sync_pull(on_done=self._on_sync_done)
+        self._app.sync_pull(
+            on_done=self._on_sync_done,
+            request_trust=self._request_sign_key_trust,
+        )
 
     def _on_sync_done(self, msg: str):
         is_error = bool(msg and msg.startswith("Sync error"))
         display = msg or i18n._("status_sync_done")
         self.after(0, lambda: self._set_status(display, error=is_error))
         self.after(0, self.refresh)
+
+    def _request_sign_key_trust(self, remote_fingerprint: str) -> str | None:
+        result = {"value": None}
+        ready = threading.Event()
+
+        def _prompt():
+            result["value"] = ask_text(
+                self,
+                i18n._("trust_sign_keys_title"),
+                i18n._("trust_sign_keys_body").format(
+                    fingerprint=format_fingerprint(remote_fingerprint)),
+            )
+            ready.set()
+
+        self.after(0, _prompt)
+        ready.wait()
+        return result["value"]
