@@ -1,13 +1,28 @@
 """
-Persistent app settings stored in ~/.calsec/settings.json.
+Persistent app settings.
+
+On Tails, settings are stored inside the Dotfiles persistent directory so they
+survive reboots together with the rest of the Dotfiles payload.
 """
 
 import json
 import os
 import tempfile
 
-_DIR  = os.path.join(os.path.expanduser("~"), ".calsec")
+_LEGACY_DIR = os.path.join(os.path.expanduser("~"), ".calsec")
+_TAILS_PERSISTENT_ROOT = "/live/persistence/TailsData_unlocked"
+_TAILS_DOTFILES_DIR = os.path.join(_TAILS_PERSISTENT_ROOT, "dotfiles")
+
+
+def _settings_dir() -> str:
+    if os.path.isdir(_TAILS_PERSISTENT_ROOT):
+        return os.path.join(_TAILS_DOTFILES_DIR, ".calsec")
+    return _LEGACY_DIR
+
+
+_DIR = _settings_dir()
 _FILE = os.path.join(_DIR, "settings.json")
+_LEGACY_FILE = os.path.join(_LEGACY_DIR, "settings.json")
 
 _DEFAULTS: dict = {
     "theme": "dark",
@@ -22,11 +37,16 @@ _current:  dict = dict(_DEFAULTS)
 
 def load() -> None:
     global _current
-    try:
-        with open(_FILE) as f:
-            _current = {**_DEFAULTS, **json.load(f)}
-    except Exception:
-        _current = dict(_DEFAULTS)
+    for path in (_FILE, _LEGACY_FILE):
+        if not path or not os.path.exists(path):
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                _current = {**_DEFAULTS, **json.load(f)}
+            return
+        except Exception:
+            pass
+    _current = dict(_DEFAULTS)
 
 
 def save() -> None:
