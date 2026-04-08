@@ -178,7 +178,7 @@ def test_provision_creates_calendar_file():
 def test_provision_calendar_structure():
     storage.provision("admin@example.com", b"password123", None)
     data = storage.load_file_raw()
-    assert data["version"] == 4
+    assert data["version"] == 1
     assert "sign_keys" in data
     assert "users" in data
     assert "entries" in data

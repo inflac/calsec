@@ -38,6 +38,9 @@ def identifier_to_hash(identifier: str) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:32]
 
 
+email_to_hash = identifier_to_hash
+
+
 # ---------------------------------------------------------------------------
 # State checks
 # ---------------------------------------------------------------------------

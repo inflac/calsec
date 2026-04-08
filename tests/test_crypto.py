@@ -142,25 +142,25 @@ def test_sign_and_verify_users():
     sign_keys = {"admin": "pk_admin", "edit": "pk_edit"}
     users     = {"hash1": {"role": "admin"}}
     sync_cfg  = None
-    sig = crypto.sign_users(sign_keys, users, sync_cfg, kpriv)
-    assert crypto.verify_users(sign_keys, users, sync_cfg, sig, kpub) is True
+    sig = crypto.sign_users(1, sign_keys, users, sync_cfg, kpriv)
+    assert crypto.verify_users(1, sign_keys, users, sync_cfg, sig, kpub) is True
 
 
 def test_verify_users_fails_on_tampered_data():
     kpriv, kpub = _keypair()
     sign_keys = {"admin": "pk_admin", "edit": "pk_edit"}
     users     = {"hash1": {"role": "admin"}}
-    sig = crypto.sign_users(sign_keys, users, None, kpriv)
+    sig = crypto.sign_users(1, sign_keys, users, None, kpriv)
     tampered = {"hash1": {"role": "editor"}}
-    assert crypto.verify_users(sign_keys, tampered, None, sig, kpub) is False
+    assert crypto.verify_users(1, sign_keys, tampered, None, sig, kpub) is False
 
 
 def test_verify_users_fails_with_wrong_key():
     kpriv, _   = _keypair()
     _, kpub2   = _keypair()
     sign_keys  = {"admin": "k", "edit": "k"}
-    sig = crypto.sign_users(sign_keys, {}, None, kpriv)
-    assert crypto.verify_users(sign_keys, {}, None, sig, kpub2) is False
+    sig = crypto.sign_users(1, sign_keys, {}, None, kpriv)
+    assert crypto.verify_users(1, sign_keys, {}, None, sig, kpub2) is False
 
 
 # ── split signatures: sign_entries / verify_entries ──────────────────────────
@@ -168,22 +168,22 @@ def test_verify_users_fails_with_wrong_key():
 def test_sign_and_verify_entries():
     kpriv, kpub = _keypair()
     entries = [{"id": "1", "title": "A"}, {"id": "2", "title": "B"}]
-    sig = crypto.sign_entries(entries, kpriv)
-    assert crypto.verify_entries(entries, sig, kpub) is True
+    sig = crypto.sign_entries(1, entries, kpriv)
+    assert crypto.verify_entries(1, entries, sig, kpub) is True
 
 
 def test_verify_entries_fails_on_tampered_data():
     kpriv, kpub = _keypair()
     entries = [{"id": "1", "title": "Original"}]
-    sig     = crypto.sign_entries(entries, kpriv)
-    assert crypto.verify_entries([{"id": "1", "title": "Tampered"}], sig, kpub) is False
+    sig     = crypto.sign_entries(1, entries, kpriv)
+    assert crypto.verify_entries(1, [{"id": "1", "title": "Tampered"}], sig, kpub) is False
 
 
 def test_verify_entries_fails_with_wrong_key():
     kpriv, _ = _keypair()
     _, kpub2 = _keypair()
-    sig = crypto.sign_entries([], kpriv)
-    assert crypto.verify_entries([], sig, kpub2) is False
+    sig = crypto.sign_entries(1, [], kpriv)
+    assert crypto.verify_entries(1, [], sig, kpub2) is False
 
 
 # ── pem_to_public_key ─────────────────────────────────────────────────────────

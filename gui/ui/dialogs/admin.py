@@ -10,8 +10,8 @@ from ui.dialogs.base import (
     _center_dialog,
     ask_yes_no,
     copy_to_clipboard,
-    show_error,
     show_copyable_text,
+    show_error,
     show_info,
 )
 
