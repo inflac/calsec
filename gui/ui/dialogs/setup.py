@@ -120,6 +120,9 @@ class FetchCalendarDialog(tk.Toplevel):
                 self._dl_btn.configure(state="normal")
                 return
 
+            version_users = data["version_users"]
+            version_entries = data["version_entries"]
+
             sign_keys = data.get("sign_keys", {})
             if not sign_keys:
                 self._status_var.set(i18n._("err_no_sign_keys"))
@@ -149,13 +152,14 @@ class FetchCalendarDialog(tk.Toplevel):
             kpub_admin = pem_to_public_key(sign_keys["admin"])
             kpub_edit  = pem_to_public_key(sign_keys["edit"])
 
-            if not verify_users(sign_keys, data.get("users", {}),
+            if not verify_users(version_users, sign_keys, data.get("users", {}),
                                  data.get("sync_config"), sig_users, kpub_admin):
                 self._status_var.set(i18n._("err_user_sig_invalid"))
                 self._dl_btn.configure(state="normal")
                 return
 
-            if not verify_entries(data.get("entries", []), sig_entries, kpub_edit):
+            if not verify_entries(version_entries, data.get("entries", []),
+                                  sig_entries, kpub_edit):
                 self._status_var.set(i18n._("err_entry_sig_invalid"))
                 self._dl_btn.configure(state="normal")
                 return

@@ -38,11 +38,6 @@ def identifier_to_hash(identifier: str) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:32]
 
 
-def email_to_hash(email: str) -> str:
-    """Backward-compatible alias for identifier_to_hash()."""
-    return identifier_to_hash(email)
-
-
 # ---------------------------------------------------------------------------
 # State checks
 # ---------------------------------------------------------------------------
@@ -207,13 +202,19 @@ def provision(admin_identifier: str, admin_password: bytes,
 
     users   = {h: admin_entry}
     entries = []
-    version = 4
+    version_users = 1
+    version_entries = 1
+    version = max(version_users, version_entries)
 
-    sig_users   = sign_users(sign_keys, users, sync_enc, kpriv_admin_sign)
-    sig_entries = sign_entries(entries, kpriv_edit_sign)
+    sig_users = sign_users(
+        version_users, sign_keys, users, sync_enc, kpriv_admin_sign)
+    sig_entries = sign_entries(
+        version_entries, entries, kpriv_edit_sign)
 
     save_file({
         "version":     version,
+        "version_users": version_users,
+        "version_entries": version_entries,
         "sign_keys":   sign_keys,
         "users":       users,
         "sync_config": sync_enc,
