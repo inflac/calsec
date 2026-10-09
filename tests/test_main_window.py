@@ -54,12 +54,12 @@ def test_unknown_saved_view_falls_back_to_list(make_window, no_settings_file):
 
 def test_toggle_switches_view_and_saves_it(make_window, no_settings_file, tk_root):
     mw = make_window()
-    assert mw._view_btn.cget("text") == "▦  Monat"
+    assert mw._view_btn.cget("text") == "▦  Month"
     mw._view_btn.invoke()
     tk_root.update()
     assert mw._view_mode == "month"
     assert mw._month_view.winfo_ismapped() and not mw._list_view.winfo_ismapped()
-    assert mw._view_btn.cget("text") == "☰  Liste"
+    assert mw._view_btn.cget("text") == "☰  List"
     assert no_settings_file.get("view_mode") == "month"
     mw._toggle_view()
     assert mw._view_mode == "list"
@@ -107,14 +107,14 @@ def test_double_click_edits_or_views_by_role(make_window, monkeypatch, can_edit,
 def test_no_edit_button_in_toolbar(make_window):
     mw = make_window(can_edit=True)
     texts = [w.cget("text") for w in mw._top.winfo_children() if w.winfo_class() == "TButton"]
-    assert "Bearbeiten" not in texts
-    assert "Löschen" in texts
+    assert "Edit" not in texts
+    assert "Delete" in texts
 
 
 def test_viewer_has_no_edit_buttons(make_window):
     mw = make_window(can_edit=False)
     texts = [w.cget("text") for w in mw._top.winfo_children() if w.winfo_class() == "TButton"]
-    assert "Hinzufügen" not in texts and "Löschen" not in texts
+    assert "Add" not in texts and "Delete" not in texts
 
 
 # ── window size ───────────────────────────────────────────────────────────────

@@ -34,7 +34,7 @@ def test_week_headers_are_inserted(view):
     rows = _rows(view)
     assert rows == ["_kw_2026_41", "a", "b", "r_inst_07102026",
                     "_kw_2026_42", "r_inst_14102026"]
-    assert view._tree.item("_kw_2026_41", "values")[0] == "KW 41 · 2026"
+    assert view._tree.item("_kw_2026_41", "values")[0] == "CW 41 · 2026"
 
 
 def test_row_values(view):

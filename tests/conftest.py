@@ -34,11 +34,11 @@ def _tk_interpreter():
 
 @pytest.fixture()
 def tk_root(_tk_interpreter):
-    """A fresh, visible, themed top-level window for one test."""
+    """A fresh, visible, themed top-level window for one test, UI in English."""
     import i18n
     import theme
 
-    i18n.load("de")
+    i18n.load("en")
     win = tk.Toplevel(_tk_interpreter)
     win.geometry("+0+0")
     theme.apply(win, "dark")

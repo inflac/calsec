@@ -2,9 +2,10 @@ import json
 import sys
 import types
 
-import gui.i18n as i18n
 import gui.sync as sync_module
 import pytest
+
+import i18n
 
 
 class _Dummy(Exception):

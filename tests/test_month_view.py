@@ -94,7 +94,7 @@ def test_too_many_entries_show_more_link(make_view):
     more = v.find_withtag("more_2026-10-15")
     assert more
     shown = sum(1 for i in range(12) if v.find_withtag(f"chip_e{i}"))
-    assert v.itemcget(more[0], "text") == f"+{12 - shown} weitere"
+    assert v.itemcget(more[0], "text") == f"+{12 - shown} more"
     assert 0 < shown < 12
 
 

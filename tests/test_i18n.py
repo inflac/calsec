@@ -1,13 +1,14 @@
-import gui.i18n as i18n
 import pytest
+
+import i18n
 
 
 @pytest.fixture(autouse=True)
 def reset_lang():
-    """Ensure tests start with a clean state."""
-    i18n.load("de")
+    """Ensure tests start and end with the default test language (English)."""
+    i18n.load("en")
     yield
-    i18n.load("de")
+    i18n.load("en")
 
 
 # ── load ──────────────────────────────────────────────────────────────────────
