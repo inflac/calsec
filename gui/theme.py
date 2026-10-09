@@ -137,6 +137,9 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
         relief="flat", padding=7,
     )
     s.map("TEntry",
+        # clam maps the background (visible in the 4 corner pixels) to its
+        # light default colour for readonly/disabled, keep it dark
+        background=[("readonly", BG), ("disabled", BG)],
         fieldbackground=[("readonly", BG_PANEL), ("disabled", BG_PANEL)],
         foreground=[("readonly", FG), ("disabled", FG_DIM)],
         bordercolor=[("focus", ACCENT), ("active", ACCENT)],
@@ -212,9 +215,10 @@ def _apply_ttk_styles(root: tk.Tk) -> None:
     )
 
     s.configure("Treeview",
-        # background is intentionally omitted: the clam theme applies it as
-        # a global override that wins over per-row tag backgrounds. Row colors
-        # are handled exclusively through tag_configure in main_window.py.
+        # background only colours the 4 corner pixels and untagged rows (clam
+        # default is white). Row colors are handled through tag_configure in
+        # main_window.py, tag backgrounds still take precedence over this.
+        background=BG,
         foreground=FG,
         fieldbackground=BG_ALT, bordercolor=BORDER,
         rowheight=36, font=F,
