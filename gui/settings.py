@@ -27,6 +27,7 @@ _LEGACY_FILE = os.path.join(_LEGACY_DIR, "settings.json")
 _DEFAULTS: dict = {
     "theme": "dark",
     "language": "en",
+    "view_mode": "list",        # "list" | "month"
     # Update settings (only relevant for frozen/PyInstaller builds)
     "updates_enabled": False,
     "update_mode": "notify",    # "auto" | "notify"

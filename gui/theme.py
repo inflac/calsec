@@ -60,6 +60,18 @@ SEL_BG   = _DARK["SEL_BG"]
 
 # ---------- Public API ----------
 
+def blend(color: str, base: str, alpha: float = 0.4) -> str:
+    """Mix *color* with *base* at *alpha* (0 = base only, 1 = color only)."""
+    def _p(h):
+        h = h.lstrip("#")
+        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    (r1, g1, b1), (r2, g2, b2) = _p(color), _p(base)
+    return "#{:02x}{:02x}{:02x}".format(
+        int(r1 * alpha + r2 * (1 - alpha)),
+        int(g1 * alpha + g2 * (1 - alpha)),
+        int(b1 * alpha + b2 * (1 - alpha)))
+
+
 def apply(root: tk.Tk, mode: str = "dark") -> None:
     """Update palette constants and re-apply all ttk / tk-option styles."""
     _load_palette(mode)

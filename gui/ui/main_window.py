@@ -24,33 +24,13 @@ from ui.dialogs import (
     show_error,
     show_info,
 )
+from ui.list_view import ListView
+from ui.month_view import MonthView
 from updater import current_version
 
 
-def _kw_iid(year: int, week: int) -> str:
-    return f"_kw_{year}_{week:02d}"
-
-
-def _blend(color: str, base: str, alpha: float = 0.4) -> str:
-    """Mix *color* with *base* at *alpha* (0 = base only, 1 = color only)."""
-    def _p(h):
-        h = h.lstrip("#")
-        return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-    r1, g1, b1 = _p(color)
-    r2, g2, b2 = _p(base)
-    r = int(r1 * alpha + r2 * (1 - alpha))
-    g = int(g1 * alpha + g2 * (1 - alpha))
-    b = int(b1 * alpha + b2 * (1 - alpha))
-    return f"#{r:02x}{g:02x}{b:02x}"
-
-
-def _is_header(iid: str) -> bool:
-    return iid.startswith("_kw_")
-
-
-
 class MainWindow(ttk.Frame):
-    """Main application frame: entry list + month navigator + action buttons."""
+    """Main application frame: entry list or month grid + month navigator + action buttons."""
 
     def __init__(self, parent, app, on_toggle_theme=None, pending_update=None):
         super().__init__(parent)
@@ -73,35 +53,42 @@ class MainWindow(ttk.Frame):
         top = ttk.Frame(self)
         top.pack(side="top", fill="x", padx=6, pady=(6, 0))
         top.columnconfigure(99, weight=1)
+        self._top = top  # its width sets the window's minimum width
 
         # Right-side controls — spans both toolbar row and nav row
         right = ttk.Frame(top)
         right.grid(row=0, column=99, rowspan=2, sticky="ne")
+        self._top_right = right  # used by show_update_banner
 
-        # Toolbar row items (packed horizontally at the top of right)
-        right_top = ttk.Frame(right)
-        right_top.pack(side="top", anchor="e", pady=(0, 2))
-        self._top_right = right_top  # used by show_update_banner
-
-        self._version_var = tk.StringVar()
-        ttk.Label(right_top, textvariable=self._version_var,
-                  foreground=theme.FG_DIM).pack(side="right", padx=8)
-
+        ttk.Button(right, text=i18n._("btn_app_settings"), width=3,
+                   command=self._open_settings).grid(
+            row=0, column=1, padx=2, pady=(0, 2), sticky="ew")
+        icon_cols = 1
         if self._on_toggle_theme:
             icon = "☀" if settings.get("theme") == "dark" else "☾"
-            ttk.Button(right_top, text=icon, width=3,
-                       command=self._on_toggle_theme).pack(side="right", padx=2)
+            ttk.Button(right, text=icon, width=3,
+                       command=self._on_toggle_theme).grid(
+                row=0, column=2, padx=2, pady=(0, 2), sticky="ew")
+            icon_cols = 2
 
-        ttk.Button(right_top, text=i18n._("btn_app_settings"), width=3,
-                   command=self._open_settings).pack(side="right", padx=2)
+        self._version_var = tk.StringVar()
+        ttk.Label(right, textvariable=self._version_var,
+                  foreground=theme.FG_DIM).grid(row=0, column=3, padx=8)
+
+        # View toggle — as wide as settings + theme, directly below them.
+        # Like the theme button, it shows the view a click switches to.
+        self._view_btn = ttk.Button(right, style="Tight.TButton",
+                                    command=self._toggle_view)
+        self._view_btn.grid(row=1, column=1, columnspan=icon_cols,
+                            padx=2, pady=(0, 4), sticky="ew")
 
         if self._pending_update:
             self._update_btn = ttk.Button(
-                right_top,
+                right,
                 text=i18n._("update_available_toolbar").format(
                     version=self._pending_update.version),
                 command=self._install_update)
-            self._update_btn.pack(side="right", padx=(0, 4))
+            self._update_btn.grid(row=0, column=0, padx=(0, 4), pady=(0, 2))
         else:
             self._update_btn = None
 
@@ -133,7 +120,7 @@ class MainWindow(ttk.Frame):
                    command=self._pull_sync).grid(
             row=0, column=col, padx=(0, 2), pady=(0, 2), sticky="ew")
 
-        # Nav row (row 1): [← month →] spans cols 0-1, [Heute] at col 2 (under Löschen)
+        # Nav row (row 1): [← month →] spans cols 0-1, [Today] at col 2
         month_nav = ttk.Frame(top)
         month_nav.grid(row=1, column=0, columnspan=2, sticky="ew",
                        padx=(0, 2), pady=(0, 4))
@@ -158,7 +145,7 @@ class MainWindow(ttk.Frame):
                    command=self._goto_today).grid(
             row=1, column=2, padx=(0, 2), pady=(0, 4), sticky="ew")
 
-        # Fingerprint label (nav row — same styling as version label above)
+        # Fingerprint label (nav row, far right — same styling as version label above)
         if self._app.is_admin:
             fp_label = tk.Label(
                 right, text="FP",
@@ -166,40 +153,30 @@ class MainWindow(ttk.Frame):
                 font=("Sans", 9),
                 bg=theme.BG, fg=theme.FG_DIM,
             )
-            fp_label.pack(side="top", anchor="e", padx=8, pady=(7, 0))
+            fp_label.grid(row=1, column=3, padx=8, pady=(0, 4))
             fp_label.bind("<Button-1>", lambda _: self._show_fingerprint())
 
-        # ── Treeview ──────────────────────────────────────────────────────────
-        tree_frame = ttk.Frame(self)
-        tree_frame.pack(fill="both", expand=True, padx=6, pady=6)
+        # ── Content: list or month grid (same interface, one shown at a time) ──
+        content = ttk.Frame(self)
+        content.pack(fill="both", expand=True, padx=6, pady=6)
 
-        cols = ("date", "time", "title", "comments")
-        self._tree = ttk.Treeview(tree_frame, columns=cols, show="headings",
-                                   selectmode="extended")
-
-        self._tree.heading("date",     text=i18n._("col_date"))
-        self._tree.heading("time",     text=i18n._("col_time"))
-        self._tree.heading("title",    text=i18n._("col_title"))
-        self._tree.heading("comments", text=i18n._("col_comments"))
-
-        self._tree.column("date",     width=100, anchor="center")
-        self._tree.column("time",     width=80,  anchor="center")
-        self._tree.column("title",    width=260)
-        self._tree.column("comments", width=80,  anchor="center")
-
-        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical",
-                                   command=self._tree.yview)
-        self._tree.configure(yscrollcommand=scrollbar.set)
-
-        self._tree.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        self._tree.bind("<Double-1>",        self._on_double_click)
-        self._tree.bind("<<TreeviewSelect>>", self._on_selection_change)
+        self._list_view = ListView(content, on_open=self._open_entry)
+        self._month_view = MonthView(
+            content,
+            on_open=self._open_entry,
+            on_add_date=self._add if self._app.can_edit else None,
+        )
+        # The window takes its default size from the shown view.
+        self._list_view.update_idletasks()
+        self._month_view.configure(width=self._list_view.winfo_reqwidth(),
+                                   height=self._list_view.winfo_reqheight())
+        self._views = {"list": self._list_view, "month": self._month_view}
 
         # ── Bottom bar ────────────────────────────────────────────────────────
         bottom_frame = ttk.Frame(self)
-        bottom_frame.pack(side="bottom", fill="x")
+        # Pack before the content: when the window shrinks, pack takes space
+        # from the widgets packed last, so the content shrinks, not this bar.
+        bottom_frame.pack(side="bottom", fill="x", before=content)
 
         self._status_var = tk.StringVar()
         self._status_label = tk.Label(bottom_frame, textvariable=self._status_var,
@@ -211,6 +188,48 @@ class MainWindow(ttk.Frame):
                   relief="sunken", anchor="e", bg=theme.BG, fg=theme.FG)
         self._app_version_label.pack(side="right")
         self._app_version_var.set(f"v{current_version()}")
+
+        self._view_mode = None
+        self._set_view(settings.get("view_mode"), save=False)
+
+        # The window must not get narrower than the toolbar, otherwise the
+        # controls on the right (version, settings, theme, view, FP) are cut off.
+        # Restore the app's own minimum when this frame goes away.
+        win = self.winfo_toplevel()
+        # Remember the app's own minimum once: on a theme switch the new frame
+        # is built while the old one has still raised it.
+        if not hasattr(win, "_calsec_base_minsize"):
+            win._calsec_base_minsize = win.minsize()
+        self._base_minsize = win._calsec_base_minsize
+        self.bind("<Destroy>", lambda e: e.widget is self and win.minsize(*self._base_minsize))
+        self.after_idle(self._fit_min_width)
+
+    def _fit_min_width(self):
+        """Raise the window's minimum width to what the toolbar needs."""
+        self._top.update_idletasks()
+        needed = self._top.winfo_reqwidth() + 12   # + padx of the top frame
+        base_w, base_h = self._base_minsize
+        self.winfo_toplevel().minsize(max(base_w, needed), base_h)
+
+    def _set_view(self, mode: str, save: bool = True):
+        """Show the list ("list") or the month grid ("month")."""
+        mode = mode if mode in ("list", "month") else "list"
+        if mode == self._view_mode:
+            return
+        self._view_mode = mode
+        for m, view in self._views.items():
+            if m == mode:
+                view.pack(fill="both", expand=True)
+            else:
+                view.pack_forget()
+        self._view_btn.configure(
+            text=i18n._("view_toggle_to_list") if mode == "month"
+            else i18n._("view_toggle_to_month"))
+        if save:
+            settings.set("view_mode", mode)
+
+    def _toggle_view(self):
+        self._set_view("list" if self._view_mode == "month" else "month")
 
     # ── Month navigation ──────────────────────────────────────────────────────
 
@@ -262,68 +281,14 @@ class MainWindow(ttk.Frame):
     # ── Data / display ────────────────────────────────────────────────────────
 
     def refresh(self):
-        self._tree.delete(*self._tree.get_children())
-        self._row_to_id.clear()
-
         self._month_var.set(
             f"{i18n.MONTHS[self._view_month]} {self._view_year}")
 
-        # Configure all tags BEFORE inserting any rows.
-        # In the clam theme, calling tag_configure after inserts causes the last
-        # configured background to override all previously configured ones.
-        self._tree.tag_configure("kw_header",
-            foreground=theme.ACCENT,
-            background=theme.BG_PANEL,
-            font=("Cantarell", 8),
-        )
-        self._tree.tag_configure("row_default", background=theme.BG_ALT)
-
         entries = self._app.get_entries_for_month(self._view_year, self._view_month)
-
-        # Pre-configure one tag per unique color before inserting any items
-        for e in entries:
-            color = e.get("color")
-            if color:
-                tag_name = f"color_{color.lstrip('#')}"
-                self._tree.tag_configure(tag_name,
-                    background=_blend(color, theme.BG))
-
-        current_week_key = None
-
-        for e in entries:
-            try:
-                iso = datetime.strptime(e["date"], "%d.%m.%Y").isocalendar()
-                week_key = (iso.year, iso.week)
-            except Exception:
-                week_key = None
-
-            if week_key != current_week_key:
-                current_week_key = week_key
-                if week_key:
-                    yr, wk = week_key
-                    label = i18n._("kw_label").format(wk=wk, yr=yr)
-                    iid = _kw_iid(yr, wk)
-                    if not self._tree.exists(iid):
-                        self._tree.insert("", "end",
-                            iid=iid,
-                            values=(label, "", "", ""),
-                            tags=("kw_header",),
-                        )
-
-            n = len(e.get("comments", []))
-            color = e.get("color")
-            if color:
-                tags = (f"color_{color.lstrip('#')}",)
-            else:
-                tags = ("row_default",)
-
-            title = ("↻  " + e["title"]) if e.get("is_recurring") else e["title"]
-            row_iid = e.get("_row_iid", e["id"])
-            self._row_to_id[row_iid] = e["id"]
-
-            self._tree.insert("", "end", iid=row_iid, values=(
-                e["date"], e["time"], title, f"{n}" if n else ""
-            ), tags=tags)
+        # Recurring instances have their own row iid, map it back to the entry id
+        self._row_to_id = {e.get("_row_iid", e["id"]): e["id"] for e in entries}
+        for view in self._views.values():
+            view.set_data(self._view_year, self._view_month, entries)
 
         self._version_var.set(f"v{self._app.version}")
         count = len(entries)
@@ -340,26 +305,14 @@ class MainWindow(ttk.Frame):
 
     # ── Selection helpers ─────────────────────────────────────────────────────
 
-    def _on_selection_change(self, _event):
-        headers = [iid for iid in self._tree.selection() if _is_header(iid)]
-        if headers:
-            self._tree.selection_remove(*headers)
-
     def _selected_base_ids(self) -> list[str]:
-        """Return deduplicated base entry ids for all selected non-header rows."""
-        seen = []
-        for iid in self._tree.selection():
-            if _is_header(iid):
-                continue
-            base = self._row_to_id.get(iid, iid)
-            if base not in seen:
-                seen.append(base)
-        return seen
+        """Return deduplicated base entry ids selected in the visible view."""
+        return self._views[self._view_mode].selected_base_ids()
 
     # ── CRUD actions ──────────────────────────────────────────────────────────
 
-    def _add(self):
-        dlg = AddEntryDialog(self)
+    def _add(self, date_str: str | None = None):
+        dlg = AddEntryDialog(self, initial_date=date_str)
         self.wait_window(dlg)
         if dlg.result is None:
             return
@@ -498,7 +451,8 @@ class MainWindow(ttk.Frame):
             self._top_right,
             text=i18n._("update_available_toolbar").format(version=info.version),
             command=self._install_update)
-        self._update_btn.pack(side="right", padx=(0, 4))
+        self._update_btn.grid(row=0, column=0, padx=(0, 4), pady=(0, 2))
+        self._fit_min_width()  # the toolbar got wider
 
     def _install_update(self):
         dlg = UpdateDialog(self, update_info=self._pending_update, can_skip=True)

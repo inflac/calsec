@@ -43,7 +43,8 @@ class AddEntryDialog(tk.Toplevel):
     result is a 6-tuple: (title, date_str, time_str, comments, color_or_None, recurrence_or_None)
     """
 
-    def __init__(self, parent, entry: dict | None = None):
+    def __init__(self, parent, entry: dict | None = None,
+                 initial_date: str | None = None):
         super().__init__(parent)
         self.withdraw()
         self.transient(parent)
@@ -119,6 +120,8 @@ class AddEntryDialog(tk.Toplevel):
             if comments_text:
                 self._comments.insert("1.0", comments_text)
         else:
+            if initial_date:
+                self._date.insert(0, initial_date)
             self._time.insert(0, "all-day")
 
         self._title.focus_set()
