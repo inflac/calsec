@@ -103,7 +103,7 @@ def check_for_update() -> UpdateInfo | None:
     Raises requests.exceptions.RequestException on network failures.
     """
     url = _channel_url()
-    resp = _session().get(url, timeout=10)
+    resp = _session().get(url, timeout=15)
     resp.raise_for_status()
     data = resp.json()
 
@@ -225,14 +225,14 @@ def apply_update(new_binary: Path) -> None:
 
     exe = Path(sys.executable)
 
-    mode = os.stat(new_binary).st_mode
-    os.chmod(new_binary, mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    mode = os.stat(new_binary).st_mode  # preserve existing permissions
+    os.chmod(new_binary, mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     try:
         os.replace(new_binary, exe)
     except OSError as exc:
         if exc.errno in (errno.EXDEV, errno.ETXTBSY):
-            # EXDEV:   /tmp and install dir are on different filesystems (common on Tails)
+            # EXDEV:   /tmp and install dir are on different filesystems
             # ETXTBSY: binary is currently executing — unlink first, then copy
             try:
                 os.unlink(exe)
