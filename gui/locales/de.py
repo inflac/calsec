@@ -207,7 +207,6 @@ STRINGS = {
 
     # ── MainWindow ────────────────────────────────────────────────────────────
     "btn_add_toolbar":          "Hinzufügen",
-    "btn_edit_toolbar":         "Bearbeiten",
     "btn_delete_toolbar":       "Löschen",
     "btn_settings_toolbar":     "Sync-Zugang",
     "btn_users_toolbar":        "Benutzer",
@@ -225,7 +224,6 @@ STRINGS = {
     "status_no_entries":        "Keine Termine in diesem Monat.",
     "status_entry_singular":    "{count} Termin",
     "status_entry_plural":      "{count} Termine",
-    "edit_select_one":          "Genau einen Eintrag zum Bearbeiten auswählen.",
     "delete_select_some":       "Zuerst einen oder mehrere Einträge auswählen.",
     "confirm_delete_title":     "Löschen bestätigen",
     "confirm_delete_singular":  "{count} Eintrag löschen?",

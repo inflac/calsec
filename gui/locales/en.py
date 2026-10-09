@@ -207,7 +207,6 @@ STRINGS = {
 
     # ── MainWindow ────────────────────────────────────────────────────────────
     "btn_add_toolbar":          "Add",
-    "btn_edit_toolbar":         "Edit",
     "btn_delete_toolbar":       "Delete",
     "btn_settings_toolbar":     "Sync Access",
     "btn_users_toolbar":        "Users",
@@ -225,7 +224,6 @@ STRINGS = {
     "status_no_entries":        "No events this month.",
     "status_entry_singular":    "{count} event",
     "status_entry_plural":      "{count} events",
-    "edit_select_one":          "Select exactly one entry to edit.",
     "delete_select_some":       "Select one or more entries first.",
     "confirm_delete_title":     "Confirm Deletion",
     "confirm_delete_singular":  "Delete {count} entry?",

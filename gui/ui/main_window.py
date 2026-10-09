@@ -99,10 +99,6 @@ class MainWindow(ttk.Frame):
                        command=self._add).grid(
                 row=0, column=col, padx=(0, 2), pady=(0, 2), sticky="ew")
             col += 1
-            ttk.Button(top, text=i18n._("btn_edit_toolbar"),
-                       command=self._edit).grid(
-                row=0, column=col, padx=(0, 2), pady=(0, 2), sticky="ew")
-            col += 1
             ttk.Button(top, text=i18n._("btn_delete_toolbar"),
                        command=self._delete).grid(
                 row=0, column=col, padx=(0, 2), pady=(0, 2), sticky="ew")
@@ -337,18 +333,8 @@ class MainWindow(ttk.Frame):
         self.refresh()
         self._set_status(i18n._("status_added"))
 
-    def _edit(self):
-        ids = self._selected_base_ids()
-        if len(ids) != 1:
-            show_info(self, i18n._("btn_edit_toolbar"), i18n._("edit_select_one"))
-            return
-
-        entry_id = ids[0]
-        entries = self._app.get_entries()
-        entry = next((e for e in entries if e["id"] == entry_id), None)
-        if entry is None:
-            return
-
+    def _edit(self, entry: dict):
+        entry_id = entry["id"]
         dlg = AddEntryDialog(self, entry=entry)
         self.wait_window(dlg)
         if dlg.result is None:
@@ -367,18 +353,17 @@ class MainWindow(ttk.Frame):
         self.refresh()
         self._set_status(i18n._("status_updated"))
 
-    def _on_double_click(self, event):
-        item = self._tree.identify_row(event.y)
-        if item and not _is_header(item):
-            self._open_entry(item)
-
     def _open_entry(self, row_iid: str):
+        """Double-click: editors and admins edit the entry, others only view it."""
         entry_id = self._row_to_id.get(row_iid, row_iid)
         entries = self._app.get_entries()
         entry = next((e for e in entries if e["id"] == entry_id), None)
         if entry is None:
             return
-        ViewEntryDialog(self, entry)
+        if self._app.can_edit:
+            self._edit(entry)
+        else:
+            ViewEntryDialog(self, entry)
 
     def _delete(self):
         ids = self._selected_base_ids()
