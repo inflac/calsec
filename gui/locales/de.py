@@ -166,7 +166,7 @@ STRINGS = {
     "lbl_date_plain":           "Datum",
     "lbl_time_plain":           "Uhrzeit",
     "lbl_comments_plain":       "Kommentare:",
-    "lbl_none":                 "–",
+    "lbl_none":                 "-",
 
     # ── AddUserDialog ─────────────────────────────────────────────────────────
     "add_user_title":           "Benutzer hinzufügen",
