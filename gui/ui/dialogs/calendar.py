@@ -209,16 +209,19 @@ class RecurrenceDialog(tk.Toplevel):
 
         self._build_ui()
 
-        # Measure the dialog at its largest layout (monthly + interval both visible)
-        # so the window size can be fixed — avoiding X11 expose-event timing issues
-        # that cause widgets to only repaint on mouse hover after a resize.
+        # Measure the weekly and the monthly layout and fix the window to the
+        # largest of both — avoiding X11 expose-event timing issues that cause
+        # widgets to only repaint on mouse hover after a resize. The weekly row
+        # (Mo–Su) is the widest, the monthly block the tallest.
+        _fixed_w = _fixed_h = 0
         self._interval_frame.pack(before=self._sep, fill="x", padx=10, pady=3)
-        self._monthly_frame.pack(before=self._sep, fill="x", padx=10, pady=3)
-        self.update_idletasks()
-        _fixed_w = self.winfo_reqwidth()
-        _fixed_h = self.winfo_reqheight()
+        for frame in (self._weekly_frame, self._monthly_frame):
+            frame.pack(before=self._sep, fill="x", padx=10, pady=3)
+            self.update_idletasks()
+            _fixed_w = max(_fixed_w, self.winfo_reqwidth())
+            _fixed_h = max(_fixed_h, self.winfo_reqheight())
+            frame.pack_forget()
         self._interval_frame.pack_forget()
-        self._monthly_frame.pack_forget()
         self.minsize(_fixed_w, _fixed_h)
         self.maxsize(_fixed_w, _fixed_h)
 
