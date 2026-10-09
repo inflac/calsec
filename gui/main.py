@@ -219,7 +219,7 @@ class Application(tk.Tk):
             return
         self._show_login()
 
-    def _show_login(self):
+    def _show_login(self, center: bool = True):
         self._logged_in_app = None
 
         raw           = storage.load_file_raw()
@@ -240,7 +240,7 @@ class Application(tk.Tk):
             self,
             on_login=self._show_main,
             user_hash=user_hash,
-        ))
+        ), center=center)
 
     def _show_provision(self):
         from ui.dialogs import ProvisionDialog, show_copyable_text, show_error
@@ -297,21 +297,28 @@ class Application(tk.Tk):
         new_mode = "light" if settings.get("theme") == "dark" else "dark"
         settings.set("theme", new_mode)
         theme.apply(self, new_mode)
+        # Rebuild in place: keep the window where the user moved it and keep
+        # the month that is currently shown.
         if self._logged_in_app is not None:
             from ui.main_window import MainWindow
-            self._switch_to(
-                MainWindow(self, self._logged_in_app,
-                           on_toggle_theme=self._toggle_theme,
-                           pending_update=self._pending_update))
+            old = self._frame
+            main_win = MainWindow(self, self._logged_in_app,
+                                  on_toggle_theme=self._toggle_theme,
+                                  pending_update=self._pending_update)
+            if isinstance(old, MainWindow):
+                main_win._view_year, main_win._view_month = old._view_year, old._view_month
+                main_win.refresh()
+            self._switch_to(main_win, center=False)
         else:
-            self._show_login()
+            self._show_login(center=False)
 
-    def _switch_to(self, frame: ttk.Frame):
+    def _switch_to(self, frame: ttk.Frame, center: bool = True):
         if self._frame is not None:
             self._frame.destroy()
         self._frame = frame
         self._frame.pack(fill="both", expand=True)
-        self.after(0, lambda: _center_on_screen(self))
+        if center:
+            self.after(0, lambda: _center_on_screen(self))
 
 
 def main():
