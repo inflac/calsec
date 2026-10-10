@@ -175,3 +175,32 @@ def test_double_click_day_without_add_permission_does_nothing(make_view):
     v = make_view([], on_add_date=None)
     v._on_double_click(_empty_spot_of_day(v, date(2026, 10, 20)))     # must not raise
     assert v.calls["open"] == []
+
+
+# ── scaling ───────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("scaling", [1.0, 2.0, 3.0])
+def test_week_numbers_fit_their_column_at_any_scaling(make_view, tk_root, scaling):
+    """Fonts grow with the display scaling (e.g. on Tails); the grid must too."""
+    import i18n
+
+    old = float(tk_root.tk.call("tk", "scaling"))
+    tk_root.tk.call("tk", "scaling", scaling)
+    try:
+        view = make_view([_entry("a", 12, title="test")])
+        kw_prefix = i18n._("kw_short") + " "
+        kw_items = [i for i in view.find_all()
+                    if view.type(i) == "text"
+                    and view.itemcget(i, "text").startswith(kw_prefix)]
+        assert kw_items
+        for item in kw_items:
+            x0, _, x1, _ = view.bbox(item)
+            assert x0 >= 0
+            assert x1 <= view._kw_w
+
+        # Day numbers start right of the week column.
+        day_items = [i for i in view.find_withtag("day_2026-10-12")
+                     if view.type(i) == "text"]
+        assert view.bbox(day_items[0])[0] >= view._kw_w
+    finally:
+        tk_root.tk.call("tk", "scaling", old)

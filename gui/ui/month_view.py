@@ -19,6 +19,8 @@ from datetime import datetime
 import i18n
 import theme
 
+# Minimum sizes in pixels. The real sizes grow with the font metrics, because
+# fonts are given in points and scale with the display (e.g. on Tails).
 _HEADER_H = 26      # weekday header row
 _KW_W     = 38      # week number column
 _DAY_H    = 22      # space for the day number at the top of a cell
@@ -44,6 +46,7 @@ class MonthView(tk.Canvas):
         self._font_day  = tkfont.Font(family="Cantarell", size=10)
         self._font_bold = tkfont.Font(family="Cantarell", size=10, weight="bold")
         self._font_kw   = tkfont.Font(family="Cantarell", size=8)
+        self._measure_layout()
 
         self._redraw_pending = False
         self.bind("<Configure>", lambda _e: self._schedule_redraw())
@@ -71,6 +74,18 @@ class MonthView(tk.Canvas):
 
     # ── Drawing ───────────────────────────────────────────────────────────────
 
+    def _measure_layout(self):
+        """Derive the grid's fixed sizes from the actual font metrics."""
+        line = self._font.metrics("linespace")
+        day_line = self._font_day.metrics("linespace")
+        widest_kw = f"{i18n._('kw_short')} 53"
+        self._header_h = max(_HEADER_H, line + 10)
+        self._kw_w = max(_KW_W, self._font_kw.measure(widest_kw) + 4 * _PAD)
+        # Today's badge must hold a two-digit day in the bold font.
+        self._badge_r = max(10, (max(day_line, self._font_bold.measure("30")) + 8) / 2)
+        self._day_h = max(_DAY_H, 2 * self._badge_r + 2)
+        self._chip_h = max(_CHIP_H, line + 4)
+
     def _schedule_redraw(self):
         if not self._redraw_pending:
             self._redraw_pending = True
@@ -83,8 +98,8 @@ class MonthView(tk.Canvas):
     def _cell_geometry(self):
         w, h = self.winfo_width(), self.winfo_height()
         weeks = len(self._weeks())
-        cell_w = (w - _KW_W) / 7
-        cell_h = (h - _HEADER_H) / weeks
+        cell_w = (w - self._kw_w) / 7
+        cell_h = (h - self._header_h) / weeks
         return cell_w, cell_h
 
     def _redraw(self):
@@ -108,21 +123,21 @@ class MonthView(tk.Canvas):
 
         # Weekday header
         for col, name in enumerate(i18n.WD_SHORT):
-            x = _KW_W + col * cell_w + cell_w / 2
-            self.create_text(x, _HEADER_H / 2, text=name, fill=theme.FG_DIM,
+            x = self._kw_w + col * cell_w + cell_w / 2
+            self.create_text(x, self._header_h / 2, text=name, fill=theme.FG_DIM,
                              font=self._font)
 
-        max_chips = max(int((cell_h - _DAY_H - _PAD) // (_CHIP_H + _CHIP_GAP)), 0)
+        max_chips = max(int((cell_h - self._day_h - _PAD) // (self._chip_h + _CHIP_GAP)), 0)
 
         for row, week in enumerate(weeks):
-            y0 = _HEADER_H + row * cell_h
+            y0 = self._header_h + row * cell_h
             iso = week[0].isocalendar()
-            self.create_text(_KW_W / 2, y0 + _DAY_H / 2 + 1,
+            self.create_text(self._kw_w / 2, y0 + self._day_h / 2 + 1,
                              text=f"{i18n._('kw_short')} {iso.week}",
                              fill=theme.ACCENT, font=self._font_kw)
 
             for col, day in enumerate(week):
-                x0 = _KW_W + col * cell_w
+                x0 = self._kw_w + col * cell_w
                 in_month = day.month == self._month
                 is_today = day == today
                 self.create_rectangle(
@@ -132,9 +147,10 @@ class MonthView(tk.Canvas):
                     tags=("cell", f"day_{day.isoformat()}"))
 
                 # Day number, today as a filled accent badge
-                nx, ny = x0 + _PAD + 11, y0 + _DAY_H / 2 + 1
+                r = self._badge_r
+                nx, ny = x0 + _PAD + r + 1, y0 + self._day_h / 2 + 1
                 if is_today:
-                    self.create_oval(nx - 10, ny - 10, nx + 10, ny + 10,
+                    self.create_oval(nx - r, ny - r, nx + r, ny + r,
                                      fill=theme.ACCENT, outline="",
                                      tags=(f"day_{day.isoformat()}",))
                 self.create_text(
@@ -152,8 +168,8 @@ class MonthView(tk.Canvas):
         for row, week in enumerate(weeks):
             if today in week:
                 col = week.index(today)
-                x0 = _KW_W + col * cell_w
-                y0 = _HEADER_H + row * cell_h
+                x0 = self._kw_w + col * cell_w
+                y0 = self._header_h + row * cell_h
                 self.create_rectangle(x0 + 1, y0 + 1, x0 + cell_w - 1, y0 + cell_h - 1,
                                       outline=theme.ACCENT, width=2)
 
@@ -162,7 +178,8 @@ class MonthView(tk.Canvas):
             return
         shown = entries if len(entries) <= max_chips else entries[:max(max_chips - 1, 0)]
         cx0, cx1 = x0 + _PAD, x0 + cell_w - _PAD
-        y = y0 + _DAY_H
+        y = y0 + self._day_h
+        chip_h = self._chip_h
 
         for e in shown:
             row_iid = e.get("_row_iid", e["id"])
@@ -170,12 +187,12 @@ class MonthView(tk.Canvas):
             selected = row_iid in self._selected
             tag = f"chip_{row_iid}"
             self.create_rectangle(
-                cx0, y, cx1, y + _CHIP_H,
+                cx0, y, cx1, y + chip_h,
                 fill=theme.SEL_BG if selected else theme.blend(color, theme.BG_ALT, 0.45),
                 outline=theme.FG if selected else "",
                 tags=("chip", tag))
             # colour bar on the left edge
-            self.create_rectangle(cx0, y, cx0 + 3, y + _CHIP_H, fill=color,
+            self.create_rectangle(cx0, y, cx0 + 3, y + chip_h, fill=color,
                                   outline="", tags=("chip", tag))
 
             label = e["title"]
@@ -184,15 +201,15 @@ class MonthView(tk.Canvas):
                 label = f"{t} {label}"
             if e.get("is_recurring"):
                 label = f"↻ {label}"
-            self.create_text(cx0 + 7, y + _CHIP_H / 2,
+            self.create_text(cx0 + 7, y + chip_h / 2,
                              text=self._fit(label, cx1 - cx0 - 10),
                              anchor="w", fill=theme.FG, font=self._font,
                              tags=("chip", tag))
-            y += _CHIP_H + _CHIP_GAP
+            y += chip_h + _CHIP_GAP
 
         hidden = len(entries) - len(shown)
         if hidden:
-            self.create_text(cx0 + 4, y + _CHIP_H / 2,
+            self.create_text(cx0 + 4, y + chip_h / 2,
                              text=i18n._("more_entries").format(n=hidden),
                              anchor="w", fill=theme.ACCENT, font=self._font,
                              tags=("more", f"more_{day.isoformat()}"))
