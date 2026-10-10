@@ -162,10 +162,14 @@ class MainWindow(ttk.Frame):
             on_open=self._open_entry,
             on_add_date=self._add if self._app.can_edit else None,
         )
-        # The window takes its default size from the shown view.
+        # Both views get the same default size, so toggling does not resize
+        # the window. It must fit the list and show MIN_VISIBLE_ENTRIES per
+        # day in the month grid.
         self._list_view.update_idletasks()
-        self._month_view.configure(width=self._list_view.winfo_reqwidth(),
-                                   height=self._list_view.winfo_reqheight())
+        month_w, month_h = self._month_view.min_size()
+        content.configure(width=max(self._list_view.winfo_reqwidth(), month_w),
+                          height=max(self._list_view.winfo_reqheight(), month_h))
+        content.pack_propagate(False)
         self._views = {"list": self._list_view, "month": self._month_view}
 
         # ── Bottom bar ────────────────────────────────────────────────────────

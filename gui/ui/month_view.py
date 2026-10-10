@@ -11,6 +11,7 @@ Interaction mirrors the list view:
 """
 
 import calendar
+import math
 import tkinter as tk
 import tkinter.font as tkfont
 from datetime import date as _date
@@ -27,6 +28,9 @@ _DAY_H    = 22      # space for the day number at the top of a cell
 _CHIP_H   = 18
 _CHIP_GAP = 2
 _PAD      = 3
+
+# Entries per day the default window size must show in a six-week month.
+MIN_VISIBLE_ENTRIES = 2
 
 
 class MonthView(tk.Canvas):
@@ -62,6 +66,17 @@ class MonthView(tk.Canvas):
         self._row_to_id = {e.get("_row_iid", e["id"]): e["id"] for e in entries}
         self._selected = [iid for iid in self._selected if iid in self._row_to_id]
         self._schedule_redraw()
+
+    def min_size(self) -> tuple[int, int]:
+        """Smallest canvas size that still shows MIN_VISIBLE_ENTRIES per day.
+
+        Assumes the worst case of a month spanning six weeks, and a cell wide
+        enough for a time plus a few characters of the title.
+        """
+        cell_w = self._font.measure("00:00 Mmmmmm") + 2 * _PAD + 10
+        cell_h = self._day_h + _PAD + MIN_VISIBLE_ENTRIES * (self._chip_h + _CHIP_GAP)
+        return (math.ceil(self._kw_w + 7 * cell_w),
+                math.ceil(self._header_h + 6 * cell_h) + 1)
 
     def selected_base_ids(self) -> list[str]:
         """Deduplicated base entry ids of all selected chips."""

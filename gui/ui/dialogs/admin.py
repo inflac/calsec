@@ -279,20 +279,32 @@ class UserManagementDialog(tk.Toplevel):
         self.transient(parent)
         self.title(i18n._("user_mgmt_title"))
         self.resizable(True, True)
-        self.minsize(620, 400)
-        self.geometry("700x460")
         self._app = app
 
         ttk.Button(self, text=i18n._("btn_add_user_toolbar"),
                    command=self._add_user).pack(
             anchor="w", padx=10, pady=(10, 4))
 
+        # Pack the action row before the list: when the window gets smaller,
+        # pack takes space from the widgets packed last, so the list shrinks
+        # and the buttons stay visible.
+        actions = ttk.Frame(self)
+        actions.pack(side="bottom", fill="x", padx=10, pady=(4, 10))
+        ttk.Button(actions, text=i18n._("btn_remove"),
+                   command=self._remove_selected).pack(side="left")
+        ttk.Button(actions, text=i18n._("btn_change_role"),
+                   command=self._change_role_selected).pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text=i18n._("btn_copy_onboarding"),
+                   command=self._copy_onboarding).pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text=i18n._("btn_close"),
+                   command=self.destroy).pack(side="right", padx=(8, 0))
+
         frame = ttk.Frame(self)
         frame.pack(fill="both", expand=True, padx=10, pady=4)
 
         cols = ("identifier", "role")
         self._tree = ttk.Treeview(frame, columns=cols, show="headings",
-                                  selectmode="browse", height=8)
+                                  selectmode="browse", height=self._DEFAULT_ROWS)
         self._tree.heading("identifier", text=i18n._("col_email"))
         self._tree.heading("role",  text=i18n._("col_role"))
         self._tree.column("identifier", width=440)
@@ -303,20 +315,26 @@ class UserManagementDialog(tk.Toplevel):
         self._tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
 
-        actions = ttk.Frame(self)
-        actions.pack(fill="x", padx=10, pady=(4, 10))
-        ttk.Button(actions, text=i18n._("btn_remove"),
-                   command=self._remove_selected).pack(side="left")
-        ttk.Button(actions, text=i18n._("btn_change_role"),
-                   command=self._change_role_selected).pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text=i18n._("btn_copy_onboarding"),
-                   command=self._copy_onboarding).pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text=i18n._("btn_close"),
-                   command=self.destroy).pack(side="right")
+        self._fit_size()
 
         self._users: dict[str, dict] = {}  # iid → user dict
         self._refresh()
         _center_dialog(self, parent)
+
+    _DEFAULT_ROWS = 8   # list rows shown by default
+    _MIN_ROWS     = 3   # list rows that stay visible when the window shrinks
+    _DEFAULT_SIZE = (700, 460)   # at least this large by default
+
+    def _fit_size(self):
+        """Size the window from its content, which grows with the font scaling."""
+        self._tree.configure(height=self._MIN_ROWS)
+        self.update_idletasks()
+        self.minsize(self.winfo_reqwidth(), self.winfo_reqheight())
+        self._tree.configure(height=self._DEFAULT_ROWS)
+        self.update_idletasks()
+        width = max(self._DEFAULT_SIZE[0], self.winfo_reqwidth())
+        height = max(self._DEFAULT_SIZE[1], self.winfo_reqheight())
+        self.geometry(f"{width}x{height}")
 
     def _refresh(self):
         self._tree.delete(*self._tree.get_children())

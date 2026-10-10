@@ -66,10 +66,34 @@ def test_toggle_switches_view_and_saves_it(make_window, no_settings_file, tk_roo
     assert no_settings_file.get("view_mode") == "list"
 
 
-def test_both_views_request_the_same_size(make_window):
+def test_toggling_views_keeps_the_window_size(make_window, tk_root):
     mw = make_window()
-    assert int(mw._month_view.cget("width")) == mw._list_view.winfo_reqwidth()
-    assert int(mw._month_view.cget("height")) == mw._list_view.winfo_reqheight()
+    size = (tk_root.winfo_width(), tk_root.winfo_height())
+    mw._toggle_view()
+    tk_root.update()
+    assert (tk_root.winfo_width(), tk_root.winfo_height()) == size
+
+
+@pytest.mark.parametrize("scaling", [1.0, 2.0])
+def test_default_size_shows_two_entries_per_day_in_month_view(
+        make_window, tk_root, no_settings_file, scaling):
+    from ui import month_view
+
+    old = float(tk_root.tk.call("tk", "scaling"))
+    tk_root.tk.call("tk", "scaling", scaling)
+    try:
+        no_settings_file._current["view_mode"] = "month"
+        mw = make_window()
+        view = mw._month_view
+        tk_root.update()
+        # Worst case: a month spanning six weeks.
+        cell_h = (view.winfo_height() - view._header_h) / 6
+        free = cell_h - view._day_h - month_view._PAD
+        assert month_view.MIN_VISIBLE_ENTRIES == 2
+        assert free >= 2 * (view._chip_h + month_view._CHIP_GAP)
+        assert view.winfo_width() >= view.min_size()[0]
+    finally:
+        tk_root.tk.call("tk", "scaling", old)
 
 
 def test_selection_comes_from_visible_view(make_window):
