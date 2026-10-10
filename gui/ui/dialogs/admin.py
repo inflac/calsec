@@ -446,7 +446,7 @@ class UserManagementDialog(tk.Toplevel):
             self._show_rotated_fingerprint()
 
     def _copy_onboarding(self):
-        from app import build_onboarding_text
+        from core.onboarding import build_onboarding_text
 
         sel = self._tree.selection()
         if not sel:

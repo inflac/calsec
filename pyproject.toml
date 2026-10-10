@@ -5,7 +5,7 @@ target-version = "py312"
 
 [tool.ruff.lint.isort]
 known-first-party = [
-    "app", "crypto", "i18n", "settings", "storage", "sync", "theme", "updater",
+    "app", "core", "crypto", "i18n", "settings", "storage", "sync", "theme", "updater",
     "ui",
 ]
 
