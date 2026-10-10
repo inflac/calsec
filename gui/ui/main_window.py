@@ -450,11 +450,12 @@ class MainWindow(ttk.Frame):
             request_trust=self._request_sign_key_trust,
         )
 
-    def _on_sync_done(self, msg: str):
-        is_error = bool(msg and msg.startswith("Sync error"))
+    def _on_sync_done(self, msg: str, is_error: bool = False):
         display = msg or i18n._("status_sync_done")
-        self.after(0, lambda: self._set_status(display, error=is_error))
+        # refresh() writes the entry count to the status bar, so it must run
+        # before the sync message is shown, not after.
         self.after(0, self.refresh)
+        self.after(0, lambda: self._set_status(display, error=is_error))
 
     def _request_sign_key_trust(self, remote_fingerprint: str) -> str | None:
         result = {"value": None}

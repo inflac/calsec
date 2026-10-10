@@ -12,6 +12,7 @@ from datetime import timedelta as _timedelta
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
+import i18n
 import storage
 from crypto import (
     b64,
@@ -43,7 +44,7 @@ def _get_identifier_enc(user_entry: dict) -> dict:
 def build_onboarding_text(identifier: str, sync_config: dict, fingerprint: str) -> str:
     """Return a standardized onboarding message for a user."""
     if not sync_config:
-        raise RuntimeError("Sync configuration is not available.")
+        raise RuntimeError(i18n._("app_err_sync_config_unavailable"))
     return (
         "CalSec Onboarding\n\n"
         f"Identifier: {identifier}\n\n"
@@ -230,9 +231,9 @@ class CalendarApp:
         self._sig_entries     = raw.get("sig_entries")
 
         if not self._sign_keys:
-            raise RuntimeError("Calendar file is missing signing keys.")
+            raise RuntimeError(i18n._("app_err_missing_sign_keys"))
         if self._sig_users is None or self._sig_entries is None:
-            raise RuntimeError("Calendar file is missing signatures.")
+            raise RuntimeError(i18n._("app_err_missing_signatures"))
 
         kpub_admin_sign = pem_to_public_key(self._sign_keys["admin"])
         kpub_edit_sign  = pem_to_public_key(self._sign_keys["edit"])
@@ -240,15 +241,11 @@ class CalendarApp:
         if not verify_users(self.version_users, self._sign_keys, self._users,
                              self._sync_config_enc,
                              self._sig_users, kpub_admin_sign):
-            raise RuntimeError(
-                "Users section signature is invalid. "
-                "File may have been tampered with.")
+            raise RuntimeError(i18n._("app_err_users_sig_invalid"))
 
         if not verify_entries(self.version_entries, self._entries_enc,
                                self._sig_entries, kpub_edit_sign):
-            raise RuntimeError(
-                "Entries section signature is invalid. "
-                "File may have been tampered with.")
+            raise RuntimeError(i18n._("app_err_entries_sig_invalid"))
 
         if self._sync_config_enc is None:
             self._sync_config = None
@@ -258,7 +255,7 @@ class CalendarApp:
                     sym_decrypt(self._sym_key_cal, self._sync_config_enc))
             except Exception as exc:
                 raise RuntimeError(
-                    "Sync configuration could not be decrypted.") from exc
+                    i18n._("app_err_sync_config_decrypt")) from exc
 
         self.buffer = []
         failed_entries = []
@@ -279,8 +276,8 @@ class CalendarApp:
             if len(failed_entries) > 3:
                 preview += ", ..."
             raise RuntimeError(
-                f"Failed to decrypt {len(failed_entries)} entr"
-                f"{'y' if len(failed_entries) == 1 else 'ies'}: {preview}"
+                i18n._("app_err_decrypt_entries").format(
+                    count=len(failed_entries), preview=preview)
             ) from first_error
         self.buffer.sort(key=lambda x: x["timestamp"])
 
@@ -308,7 +305,7 @@ class CalendarApp:
 
     def _private_key_pem(self, kpriv) -> bytes:
         if kpriv is None:
-            raise RuntimeError("Signing key unavailable.")
+            raise RuntimeError(i18n._("app_err_signing_key_unavailable"))
         return kpriv.private_bytes(
             serialization.Encoding.PEM,
             serialization.PrivateFormat.PKCS8,
@@ -377,7 +374,7 @@ class CalendarApp:
 
         if changed in ("entries", "both"):
             if self._kpriv_edit_sign is None:
-                raise RuntimeError("Only editors and admins can save entry changes.")
+                raise RuntimeError(i18n._("app_err_only_editors_save"))
             sig_entries = sign_entries(
                 new_entries_version, self._entries_enc, self._kpriv_edit_sign)
         else:
@@ -385,7 +382,7 @@ class CalendarApp:
 
         if changed in ("users", "both"):
             if self._kpriv_admin_sign is None:
-                raise RuntimeError("Only admins can save user changes.")
+                raise RuntimeError(i18n._("app_err_only_admins_save_users"))
             sig_users = sign_users(
                 new_users_version, self._sign_keys, self._users, self._sync_config_enc,
                 self._kpriv_admin_sign)
@@ -410,11 +407,11 @@ class CalendarApp:
             def _run():
                 try:
                     from sync import sync_push
-                    msg = sync_push(config)
+                    ok, msg = sync_push(config)
                 except Exception as exc:
-                    msg = f"Sync error: {exc}"
+                    ok, msg = False, i18n._("sync_err_exception").format(exc=exc)
                 if on_sync_done:
-                    on_sync_done(msg)
+                    on_sync_done(msg, not ok)
             threading.Thread(target=_run, daemon=True).start()
 
     # ── Entry queries ─────────────────────────────────────────────────────────
@@ -441,7 +438,8 @@ class CalendarApp:
                         result.append(data)
                 except Exception as exc:
                     raise RuntimeError(
-                        f"Entry {data.get('id', '<unknown>')} contains an invalid date."
+                        i18n._("app_err_entry_invalid_date").format(
+                            id=data.get("id", "<unknown>"))
                     ) from exc
             else:
                 for d in _expand_recurrence(data, year, month):
@@ -456,7 +454,8 @@ class CalendarApp:
                             dt = dt.replace(hour=t.hour, minute=t.minute)
                         except Exception as exc:
                             raise RuntimeError(
-                                f"Entry {data.get('id', '<unknown>')} contains an invalid time."
+                                i18n._("app_err_entry_invalid_time").format(
+                                    id=data.get("id", "<unknown>"))
                             ) from exc
                     instance["timestamp"]  = dt.timestamp()
                     instance["is_recurring"] = True
@@ -555,7 +554,7 @@ class CalendarApp:
 
     def update_sync_config(self, sync_data: dict | None, on_sync_done=None):
         if not self._is_admin:
-            raise RuntimeError("Only admin can change sync configuration.")
+            raise RuntimeError(i18n._("app_err_only_admin_sync_config"))
         if sync_data is None:
             self._sync_config_enc = None
         else:
@@ -574,7 +573,7 @@ class CalendarApp:
                     self._sym_key_cal, _get_identifier_enc(u)).decode()
             except Exception as exc:
                 raise RuntimeError(
-                    f"Failed to decrypt identifier for user {h}.") from exc
+                    i18n._("app_err_decrypt_identifier").format(user=h)) from exc
             result.append({
                 "hash":       h,
                 "identifier": identifier,
@@ -589,7 +588,7 @@ class CalendarApp:
         config = self.sync_config
         if config is None:
             if on_done:
-                on_done("Kein Sync konfiguriert.")
+                on_done(i18n._("sync_not_configured"), False)
             return
 
         local_sign_keys = self._sign_keys
@@ -599,7 +598,7 @@ class CalendarApp:
             data, msg = _pull(config)
             if data is None:
                 if on_done:
-                    on_done(msg)
+                    on_done(msg, True)
                 return
 
             remote_sign_keys = data.get("sign_keys", {})
@@ -610,7 +609,7 @@ class CalendarApp:
 
             if not sig_users or not sig_entries or not remote_sign_keys:
                 if on_done:
-                    on_done("Sync error: Signaturen der heruntergeladenen Datei fehlen.")
+                    on_done(i18n._("sync_err_missing_signatures"), True)
                 return
 
             kpub_admin_sign = pem_to_public_key(remote_sign_keys["admin"])
@@ -619,52 +618,50 @@ class CalendarApp:
             if not verify_users(remote_users_version, remote_sign_keys, data.get("users", {}),
                                 data.get("sync_config"), sig_users, kpub_admin_sign):
                 if on_done:
-                    on_done("Sync error: Benutzersignatur der heruntergeladenen "
-                            "Datei ungÃ¼ltig.")
+                    on_done(i18n._("sync_err_users_sig_invalid"), True)
                 return
 
             if not verify_entries(remote_entries_version, data.get("entries", []),
                                   sig_entries, kpub_edit_sign):
                 if on_done:
-                    on_done("Sync error: Eintrags-Signatur der heruntergeladenen "
-                            "Datei ungÃ¼ltig.")
+                    on_done(i18n._("sync_err_entries_sig_invalid"), True)
                 return
 
             sign_keys_changed = remote_sign_keys != local_sign_keys
             if sign_keys_changed:
                 if request_trust is None:
                     if on_done:
-                        on_done("Sync error: SignierschlÃ¼ssel der heruntergeladenen "
-                                "Datei stimmen nicht Ã¼berein.")
+                        on_done(i18n._("sync_err_sign_keys_mismatch"), True)
                     return
 
                 remote_fingerprint = sign_keys_fingerprint(remote_sign_keys)
                 expected = request_trust(remote_fingerprint)
                 if expected is None:
                     if on_done:
-                        on_done("Sync error: Neue SignierschlÃ¼ssel nicht bestÃ¤tigt.")
+                        on_done(i18n._("sync_err_sign_keys_not_confirmed"), True)
                     return
                 if normalize_fingerprint(expected) != remote_fingerprint:
                     if on_done:
                         on_done(
-                            "Sync error: Signatur-Fingerprint stimmt nicht Ã¼berein.\n"
-                            f"Empfangener Fingerprint:\n{format_fingerprint(remote_fingerprint)}"
+                            i18n._("sync_err_fingerprint_mismatch").format(
+                                fingerprint=format_fingerprint(remote_fingerprint)),
+                            True,
                         )
                     return
 
             if (remote_users_version <= self.version_users
                     and remote_entries_version <= self.version_entries):
                 if on_done:
-                    on_done("Kalender bereits aktuell.")
+                    on_done(i18n._("sync_up_to_date"), False)
                 return
 
             storage.save_file(data)
             self._reload()
             if on_done:
                 if sign_keys_changed:
-                    on_done(f"{msg} Neue SignierschlÃ¼ssel Ã¼bernommen.")
+                    on_done(i18n._("sync_sign_keys_accepted").format(msg=msg), False)
                 else:
-                    on_done(msg)
+                    on_done(msg, False)
 
         threading.Thread(target=_run, daemon=True).start()
 
@@ -674,12 +671,13 @@ class CalendarApp:
                  save_locally: bool = True) -> bytes | None:
         """Add a user to the calendar."""
         if not self._is_admin:
-            raise RuntimeError("Only admin can add users.")
+            raise RuntimeError(i18n._("app_err_only_admin_add_users"))
 
         identifier = storage.normalize_identifier(identifier)
         h = storage.identifier_to_hash(identifier)
         if h in self._users:
-            raise RuntimeError(f"User already exists: {identifier}")
+            raise RuntimeError(
+                i18n._("app_err_user_exists").format(identifier=identifier))
 
         kpriv_bytes = None
         if kpub_user is None:
@@ -714,11 +712,11 @@ class CalendarApp:
     def change_user_role(self, user_hash: str, new_role: str) -> None:
         """Change the role of an existing user and rotate compromised sign keys."""
         if not self._is_admin:
-            raise RuntimeError("Only admin can change user roles.")
+            raise RuntimeError(i18n._("app_err_only_admin_change_roles"))
         if user_hash == self._user_hash:
-            raise RuntimeError("Cannot change your own role.")
+            raise RuntimeError(i18n._("app_err_cannot_change_own_role"))
         if user_hash not in self._users:
-            raise RuntimeError("User not found.")
+            raise RuntimeError(i18n._("app_err_user_not_found"))
 
         user_entry = self._users[user_hash]
         old_role = user_entry.get("role", "viewer")
@@ -742,11 +740,11 @@ class CalendarApp:
     def remove_user(self, user_hash_str: str) -> None:
         """Remove a user, rotate sym_key_cal, and revoke any distributed sign keys."""
         if not self._is_admin:
-            raise RuntimeError("Only admin can remove users.")
+            raise RuntimeError(i18n._("app_err_only_admin_remove_users"))
         if user_hash_str == self._user_hash:
-            raise RuntimeError("Cannot remove your own account.")
+            raise RuntimeError(i18n._("app_err_cannot_remove_self"))
         if user_hash_str not in self._users:
-            raise RuntimeError("User not found.")
+            raise RuntimeError(i18n._("app_err_user_not_found"))
 
         removed_role = self._users[user_hash_str].get("role", "viewer")
         del self._users[user_hash_str]
@@ -759,7 +757,8 @@ class CalendarApp:
                 new_entries.append(encrypt_entry(data, new_key))
             except Exception as exc:
                 raise RuntimeError(
-                    f"Failed to decrypt entry during key rotation: {enc.get('id', '<unknown>')}"
+                    i18n._("app_err_rotation_entry").format(
+                        id=enc.get("id", "<unknown>"))
                 ) from exc
 
         for h, user_entry in self._users.items():
@@ -771,7 +770,7 @@ class CalendarApp:
                 user_entry["identifier_enc"] = sym_encrypt(new_key, identifier_plain)
             except Exception as exc:
                 raise RuntimeError(
-                    f"Failed to re-encrypt identifier for user {h}.") from exc
+                    i18n._("app_err_rotation_identifier").format(user=h)) from exc
 
         if self._sync_config_enc:
             try:
@@ -779,8 +778,7 @@ class CalendarApp:
                 self._sync_config_enc = sym_encrypt(new_key, sc_plain)
             except Exception as exc:
                 raise RuntimeError(
-                    "Failed to re-encrypt sync configuration during key rotation."
-                ) from exc
+                    i18n._("app_err_rotation_sync_config")) from exc
 
         self._sym_key_cal = new_key
         self._entries_enc = new_entries

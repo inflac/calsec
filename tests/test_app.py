@@ -234,3 +234,26 @@ def test_tampered_file_raises_on_reload(provisioned):
     storage.save_file(raw)
     with pytest.raises(RuntimeError, match="tampered"):
         cal._reload()
+
+
+# ── Translated messages ───────────────────────────────────────────────────────
+
+def test_errors_follow_selected_language(provisioned):
+    import i18n
+    cal, h = provisioned
+    i18n.load("de")
+    try:
+        with pytest.raises(RuntimeError) as exc_info:
+            cal.remove_user(h)
+        assert str(exc_info.value) == i18n._("app_err_cannot_remove_self")
+        assert "Konto" in str(exc_info.value)
+    finally:
+        i18n.load("en")
+
+
+def test_sync_pull_without_config_reports_info_not_error(provisioned):
+    import i18n
+    cal, _ = provisioned
+    results = []
+    cal.sync_pull(on_done=lambda msg, is_error: results.append((msg, is_error)))
+    assert results == [(i18n._("sync_not_configured"), False)]

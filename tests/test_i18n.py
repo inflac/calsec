@@ -87,3 +87,8 @@ def test_supported_languages():
     codes = [code for code, _ in i18n.SUPPORTED]
     assert "de" in codes
     assert "en" in codes
+
+
+def test_locales_have_the_same_keys():
+    from locales import de, en
+    assert set(de.STRINGS) == set(en.STRINGS)

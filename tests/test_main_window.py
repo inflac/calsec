@@ -194,3 +194,15 @@ def test_theme_switch_keeps_position_and_month(tk_root, no_settings_file, monkey
         assert centered == []               # not re-centered
     finally:
         app.destroy()
+
+
+# ── sync status ───────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("is_error", [True, False])
+def test_sync_status_color_follows_error_flag(make_window, tk_root, is_error):
+    import theme
+    mw = make_window()
+    mw._on_sync_done("Sync: Keine Verbindung zum Server.", is_error)
+    tk_root.update()
+    expected = theme.RED if is_error else theme.FG
+    assert str(mw._status_label.cget("fg")) == expected

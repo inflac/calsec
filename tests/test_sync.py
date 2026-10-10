@@ -70,19 +70,19 @@ def test_calendar_url_strips_trailing_slash():
 
 # ── sync_push ─────────────────────────────────────────────────────────────────
 
-def test_push_none_config_returns_none():
-    assert sync_module.sync_push(None) is None
+def test_push_none_config_returns_not_configured():
+    assert sync_module.sync_push(None) == (False, i18n._("sync_not_configured"))
 
 
 def test_push_requests_not_installed(monkeypatch, calendar_file):
     monkeypatch.setitem(sys.modules, "requests", None)
-    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_no_requests")
+    assert sync_module.sync_push(_make_config()) == (False, i18n._("sync_err_no_requests"))
 
 
 def test_push_missing_file(monkeypatch):
     monkeypatch.setattr(sync_module, "DATA_FILE", "/nonexistent/calendar.json")
     result = sync_module.sync_push(_make_config())
-    assert result == i18n._("sync_file_not_found").format(file="/nonexistent/calendar.json")
+    assert result == (False, i18n._("sync_file_not_found").format(file="/nonexistent/calendar.json"))
 
 
 def test_push_file_read_error(monkeypatch, calendar_file):
@@ -92,17 +92,21 @@ def test_push_file_read_error(monkeypatch, calendar_file):
             raise OSError("read failed")
         return original_open(path, mode, **kw)
     monkeypatch.setattr("builtins.open", fail_open)
-    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_read_failed")
+    assert sync_module.sync_push(_make_config()) == (False, i18n._("sync_err_read_failed"))
 
 
 def test_push_success(monkeypatch, calendar_file):
     monkeypatch.setitem(sys.modules, "requests", _fake_put(201))
-    assert "201" in sync_module.sync_push(_make_config())
+    ok, msg = sync_module.sync_push(_make_config())
+    assert ok is True
+    assert "201" in msg
 
 
 def test_push_success_204(monkeypatch, calendar_file):
     monkeypatch.setitem(sys.modules, "requests", _fake_put(204))
-    assert "204" in sync_module.sync_push(_make_config())
+    ok, msg = sync_module.sync_push(_make_config())
+    assert ok is True
+    assert "204" in msg
 
 
 @pytest.mark.parametrize("code,key", [
@@ -114,7 +118,7 @@ def test_push_success_204(monkeypatch, calendar_file):
 def test_push_http_errors(monkeypatch, calendar_file, code, key):
     monkeypatch.setitem(sys.modules, "requests", _fake_put(code))
     result = sync_module.sync_push(_make_config())
-    assert i18n._(key).format(code=code) in result
+    assert result == (False, i18n._(key).format(code=code))
 
 
 def _push_exc(exc_cls, exc_name):
@@ -130,21 +134,21 @@ def test_push_ssl_error(monkeypatch, calendar_file):
     class SSLError(Exception):
         pass
     monkeypatch.setitem(sys.modules, "requests", _push_exc(SSLError, "SSLError"))
-    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_ssl")
+    assert sync_module.sync_push(_make_config()) == (False, i18n._("sync_err_ssl"))
 
 
 def test_push_connection_error(monkeypatch, calendar_file):
     class ConnectionError(Exception):
         pass
     monkeypatch.setitem(sys.modules, "requests", _push_exc(ConnectionError, "ConnectionError"))
-    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_connection")
+    assert sync_module.sync_push(_make_config()) == (False, i18n._("sync_err_connection"))
 
 
 def test_push_timeout(monkeypatch, calendar_file):
     class Timeout(Exception):
         pass
     monkeypatch.setitem(sys.modules, "requests", _push_exc(Timeout, "Timeout"))
-    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_timeout")
+    assert sync_module.sync_push(_make_config()) == (False, i18n._("sync_err_timeout"))
 
 
 def test_push_missing_schema(monkeypatch, calendar_file):
@@ -152,7 +156,7 @@ def test_push_missing_schema(monkeypatch, calendar_file):
         pass
     url = sync_module._calendar_url(_make_config())
     monkeypatch.setitem(sys.modules, "requests", _push_exc(MissingSchema, "MissingSchema"))
-    assert sync_module.sync_push(_make_config()) == i18n._("sync_err_invalid_url").format(url=url)
+    assert sync_module.sync_push(_make_config()) == (False, i18n._("sync_err_invalid_url").format(url=url))
 
 
 # ── sync_pull ─────────────────────────────────────────────────────────────────

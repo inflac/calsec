@@ -16,24 +16,25 @@ def _calendar_url(config: dict) -> str:
     return config["webdav_url"].rstrip("/") + "/calendar.json"
 
 
-def sync_push(config) -> str:
-    """Upload calendar.json to a WebDAV URL via PUT. Returns a status message."""
+def sync_push(config) -> tuple:
+    """Upload calendar.json to a WebDAV URL via PUT.
+    Returns (ok, message). ok is False on failure."""
     if config is None:
-        return None
+        return False, i18n._("sync_not_configured")
 
     try:
         import requests
     except ImportError:
-        return i18n._("sync_err_no_requests")
+        return False, i18n._("sync_err_no_requests")
 
     if not os.path.exists(DATA_FILE):
-        return i18n._("sync_file_not_found").format(file=DATA_FILE)
+        return False, i18n._("sync_file_not_found").format(file=DATA_FILE)
 
     try:
         with open(DATA_FILE, "rb") as f:
             data = f.read()
     except Exception:
-        return i18n._("sync_err_read_failed")
+        return False, i18n._("sync_err_read_failed")
 
     url  = _calendar_url(config)
     auth = (config["auth_user"], config["password"])
@@ -46,24 +47,24 @@ def sync_push(config) -> str:
             timeout=30,
         )
     except requests.exceptions.MissingSchema:
-        return i18n._("sync_err_invalid_url").format(url=url)
+        return False, i18n._("sync_err_invalid_url").format(url=url)
     except requests.exceptions.SSLError:
-        return i18n._("sync_err_ssl")
+        return False, i18n._("sync_err_ssl")
     except requests.exceptions.ConnectionError:
-        return i18n._("sync_err_connection")
+        return False, i18n._("sync_err_connection")
     except requests.exceptions.Timeout:
-        return i18n._("sync_err_timeout")
+        return False, i18n._("sync_err_timeout")
 
     if response.status_code in (200, 201, 204):
-        return i18n._("sync_push_ok").format(code=response.status_code)
+        return True, i18n._("sync_push_ok").format(code=response.status_code)
     elif response.status_code == 401:
-        return i18n._("sync_err_auth")
+        return False, i18n._("sync_err_auth")
     elif response.status_code == 403:
-        return i18n._("sync_err_access_denied")
+        return False, i18n._("sync_err_access_denied")
     elif response.status_code == 404:
-        return i18n._("sync_err_path_not_found")
+        return False, i18n._("sync_err_path_not_found")
     else:
-        return i18n._("sync_err_unexpected").format(code=response.status_code)
+        return False, i18n._("sync_err_unexpected").format(code=response.status_code)
 
 
 def sync_pull(config) -> tuple:
