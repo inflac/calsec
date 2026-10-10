@@ -185,6 +185,13 @@ class MainWindow(ttk.Frame):
         self._app_version_label.pack(side="right")
         self._app_version_var.set(f"v{current_version()}")
 
+        # Shown left of the version while an upload or download is running.
+        self._sync_indicator = tk.Label(bottom_frame, anchor="e",
+                                        bg=theme.BG, fg=theme.FG_DIM)
+        self._sync_frame = 0
+        self._sync_poll_id = None
+        self._poll_sync_state()
+
         self._view_mode = None
         self._set_view(settings.get("view_mode"), save=False)
 
@@ -198,7 +205,33 @@ class MainWindow(ttk.Frame):
             win._calsec_base_minsize = win.minsize()
         self._base_minsize = win._calsec_base_minsize
         self.bind("<Destroy>", lambda e: e.widget is self and win.minsize(*self._base_minsize))
+        self.bind("<Destroy>", self._stop_sync_poll, add="+")
         self.after_idle(self._fit_min_width)
+
+    # ── Sync indicator ────────────────────────────────────────────────────────
+
+    _SYNC_SPINNER = "◐◓◑◒"
+
+    def _poll_sync_state(self):
+        """Show or hide the sync indicator; animate it while syncing."""
+        if getattr(self._app, "is_syncing", False):
+            frame = self._SYNC_SPINNER[self._sync_frame % len(self._SYNC_SPINNER)]
+            self._sync_frame += 1
+            self._sync_indicator.configure(text=f"{frame} {i18n._('sync_indicator')} ")
+            if not self._sync_indicator.winfo_ismapped():
+                self._sync_indicator.pack(side="right", after=self._app_version_label)
+            delay = 150
+        else:
+            if self._sync_indicator.winfo_ismapped():
+                self._sync_indicator.pack_forget()
+            self._sync_frame = 0
+            delay = 250
+        self._sync_poll_id = self.after(delay, self._poll_sync_state)
+
+    def _stop_sync_poll(self, event=None):
+        if (event is None or event.widget is self) and self._sync_poll_id is not None:
+            self.after_cancel(self._sync_poll_id)
+            self._sync_poll_id = None
 
     def _fit_min_width(self):
         """Raise the window's minimum width to what the toolbar needs."""

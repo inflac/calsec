@@ -37,6 +37,8 @@ class CalendarApp(StateMixin, SyncMixin, EntriesMixin, UsersMixin):
         self._sync_lock = threading.Lock()
         # Local changes not yet on the server, as re-applicable operations.
         self._pending: list = []
+        # Number of upload/download threads that are running or waiting.
+        self._active_syncs = 0
 
         self.buffer   = []
         self._reload()

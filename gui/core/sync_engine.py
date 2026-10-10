@@ -21,6 +21,34 @@ class SyncMixin:
 
     _MAX_SYNC_CONFLICTS = 5
 
+    # ── Background work ───────────────────────────────────────────────────────
+
+    @property
+    def is_syncing(self) -> bool:
+        """True while an upload or download is running or waiting to run."""
+        with self._lock:
+            return self._active_syncs > 0
+
+    @property
+    def has_unsynced_changes(self) -> bool:
+        """True if local changes have not reached the server yet."""
+        with self._lock:
+            return bool(self._pending)
+
+    def _run_in_background(self, fn) -> None:
+        """Run fn in a daemon thread and count it as an active sync until it ends."""
+        with self._lock:
+            self._active_syncs += 1
+
+        def _run():
+            try:
+                fn()
+            finally:
+                with self._lock:
+                    self._active_syncs -= 1
+
+        threading.Thread(target=_run, daemon=True).start()
+
     # ── Change + upload ───────────────────────────────────────────────────────
 
     def _commit(self, op, on_sync_done=None) -> None:
@@ -64,7 +92,7 @@ class SyncMixin:
             if on_sync_done:
                 on_sync_done(msg, is_error)
 
-        threading.Thread(target=_run, daemon=True).start()
+        self._run_in_background(_run)
 
     def _push_pending(self) -> tuple[str, bool]:
         """Upload pending local changes. The caller must hold _sync_lock.
@@ -237,7 +265,7 @@ class SyncMixin:
             if on_done:
                 on_done(msg, is_error)
 
-        threading.Thread(target=_run, daemon=True).start()
+        self._run_in_background(_run)
 
     def _pull(self, config, request_trust) -> tuple[str, bool]:
         """Download and apply the remote file. The caller must hold _sync_lock."""

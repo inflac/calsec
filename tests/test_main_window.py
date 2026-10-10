@@ -15,6 +15,8 @@ class StubApp:
         self.is_admin = is_admin
         self.version = 3
         self.sync_config = None
+        self.is_syncing = False
+        self.has_unsynced_changes = False
 
     def get_entries_for_month(self, y, m):
         return [ENTRY] if (y, m) == (TODAY.year, TODAY.month) else []
@@ -206,3 +208,90 @@ def test_sync_status_color_follows_error_flag(make_window, tk_root, is_error):
     tk_root.update()
     expected = theme.RED if is_error else theme.FG
     assert str(mw._status_label.cget("fg")) == expected
+
+
+def test_sync_indicator_shows_only_while_syncing(make_window, tk_root):
+    mw = make_window()
+    assert not mw._sync_indicator.winfo_ismapped()
+
+    mw._app.is_syncing = True
+    mw._poll_sync_state()
+    tk_root.update()
+    assert mw._sync_indicator.winfo_ismapped()
+
+    mw._app.is_syncing = False
+    mw._poll_sync_state()
+    tk_root.update()
+    assert not mw._sync_indicator.winfo_ismapped()
+
+
+# ── closing while syncing ─────────────────────────────────────────────────────
+
+def _bare_application():
+    """main.Application as its own Tk root, without its startup flow."""
+    import tkinter as tk
+
+    import main as main_module
+
+    app = main_module.Application.__new__(main_module.Application)
+    for _ in range(3):
+        try:
+            tk.Tk.__init__(app, className="calsec")
+            break
+        except tk.TclError as exc:
+            error = exc
+    else:
+        pytest.skip(f"no display available: {error}")
+    app._frame = None
+    return app
+
+
+@pytest.mark.parametrize("is_syncing", [True, False])
+def test_close_is_blocked_while_syncing(tk_root, no_settings_file, monkeypatch, is_syncing):
+    import tkinter as tk
+
+    import ui.dialogs
+
+    app = _bare_application()
+    infos = []
+    monkeypatch.setattr(ui.dialogs, "show_info", lambda *args: infos.append(args))
+    stub = StubApp()
+    stub.is_syncing = is_syncing
+    app._logged_in_app = stub
+    destroyed = []
+    monkeypatch.setattr(app, "destroy", lambda: destroyed.append(True))
+    try:
+        app._on_close()
+        assert destroyed == ([] if is_syncing else [True])
+        assert len(infos) == (1 if is_syncing else 0)
+    finally:
+        tk.Tk.destroy(app)
+
+
+@pytest.mark.parametrize("confirm", [True, False])
+def test_close_with_unsynced_changes_asks_first(tk_root, no_settings_file, monkeypatch, confirm):
+    import tkinter as tk
+
+    import ui.dialogs
+    from ui.main_window import MainWindow
+
+    app = _bare_application()
+    asked = []
+    monkeypatch.setattr(ui.dialogs, "ask_yes_no",
+                        lambda *args: asked.append(args) or confirm)
+    synced_again = []
+    monkeypatch.setattr(MainWindow, "_pull_sync", lambda self: synced_again.append(True))
+    stub = StubApp()
+    stub.has_unsynced_changes = True
+    app._logged_in_app = stub
+    app.minsize(680, 440)
+    app._frame = MainWindow(app, stub, on_toggle_theme=lambda: None)
+    destroyed = []
+    monkeypatch.setattr(app, "destroy", lambda: destroyed.append(True))
+    try:
+        app._on_close()
+        assert len(asked) == 1
+        assert destroyed == ([True] if confirm else [])
+        assert synced_again == ([] if confirm else [True])
+    finally:
+        tk.Tk.destroy(app)

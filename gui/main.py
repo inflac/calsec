@@ -160,6 +160,7 @@ class Application(tk.Tk):
         self._frame          = None
         self._logged_in_app  = None
         self._pending_update = None  # set when notify-mode check finds an update
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         settings.load()
         i18n.load(settings.get("language"))
@@ -173,6 +174,23 @@ class Application(tk.Tk):
 
         self._start()
         _center_on_screen(self)
+
+    def _on_close(self):
+        """Close the app, but not while changes are syncing or not uploaded yet."""
+        app = self._logged_in_app
+        if app is not None and getattr(app, "is_syncing", False):
+            from ui.dialogs import show_info
+            show_info(self, i18n._("close_syncing_title"), i18n._("close_syncing_body"))
+            return
+        if app is not None and getattr(app, "has_unsynced_changes", False):
+            from ui.dialogs import ask_yes_no
+            from ui.main_window import MainWindow
+            if not ask_yes_no(self, i18n._("close_unsynced_title"),
+                              i18n._("close_unsynced_body")):
+                if isinstance(self._frame, MainWindow):
+                    self._frame._pull_sync()
+                return
+        self.destroy()
 
     def _run_auto_update_check(self):
         """Show a blocking update dialog; login proceeds only after it closes."""

@@ -474,3 +474,36 @@ def test_gives_up_when_remote_keeps_changing(synced, monkeypatch):
 def i18n_text(key):
     import i18n
     return i18n._(key)
+
+
+def test_is_syncing_while_upload_runs(synced, monkeypatch):
+    cal, server = synced
+    release = threading.Event()
+    original_push = server.push
+
+    def slow_push(*args, **kwargs):
+        release.wait(10)
+        return original_push(*args, **kwargs)
+
+    monkeypatch.setattr(sync, "push", slow_push)
+    done = threading.Event()
+    cal.add_entry("Local", "02.01.2026", "all-day", [],
+                  on_sync_done=lambda msg, is_error: done.set())
+    assert cal.is_syncing
+    release.set()
+    assert done.wait(10)
+    deadline = time.time() + 10
+    while cal.is_syncing and time.time() < deadline:
+        time.sleep(0.01)
+    assert not cal.is_syncing
+
+
+def test_failed_upload_leaves_unsynced_changes(synced):
+    cal, server = synced
+    assert not cal.has_unsynced_changes
+    server.fail_next_push = True
+    _wait(lambda cb: cal.add_entry("Local", "02.01.2026", "all-day", [], on_sync_done=cb))
+    assert cal.has_unsynced_changes
+
+    _wait(lambda cb: cal.sync_pull(on_done=cb))
+    assert not cal.has_unsynced_changes
