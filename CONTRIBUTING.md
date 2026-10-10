@@ -35,7 +35,7 @@ VS Code tasks for both are available under **Terminal → Run Task**.
 
 ## Release Signing
 
-Release binaries are signed with an Ed25519 key via GitHub Actions. The signing step requires the `RELEASE_SIGNING_KEY` secret to be set in the repository settings. Local builds skip the signing step — the sign script (`scripts/sign_release.py`) reads the key exclusively from the `RELEASE_SIGNING_KEY` environment variable and will fail if it is not set.
+Release binaries are signed with an Ed25519 key via GitHub Actions. The signing step requires the `RELEASE_SIGNING_KEY` secret to be set in the repository settings. Local builds skip the signing step - the sign script (`scripts/sign_release.py`) reads the key exclusively from the `RELEASE_SIGNING_KEY` environment variable and will fail if it is not set.
 
 To generate a new signing keypair:
 

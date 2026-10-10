@@ -6,7 +6,7 @@ import i18n
 import theme
 from ui.dialogs.base import _PAD, _PALETTE, _center_dialog, show_error
 
-# Internal weekday codes (stored in calendar data — do NOT translate)
+# Internal weekday codes (stored in calendar data - do NOT translate)
 _WD_CODES = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
 
 
@@ -75,7 +75,7 @@ class AddEntryDialog(tk.Toplevel):
         ttk.Label(self, text=i18n._("lbl_one_per_line"), foreground=theme.FG_DIM).grid(
             row=4, column=1, sticky="w", padx=10)
 
-        # Color picker — 12 swatches in two rows of 6
+        # Color picker - 12 swatches in two rows of 6
         ttk.Label(self, text=i18n._("lbl_color")).grid(row=5, column=0, sticky="ne", padx=10, pady=6)
         color_frame = tk.Frame(self)
         color_frame.grid(row=5, column=1, sticky="w", padx=10, pady=4)
@@ -213,9 +213,9 @@ class RecurrenceDialog(tk.Toplevel):
         self._build_ui()
 
         # Measure the weekly and the monthly layout and fix the window to the
-        # largest of both — avoiding X11 expose-event timing issues that cause
+        # largest of both - avoiding X11 expose-event timing issues that cause
         # widgets to only repaint on mouse hover after a resize. The weekly row
-        # (Mo–Su) is the widest, the monthly block the tallest.
+        # (Mo-Su) is the widest, the monthly block the tallest.
         _fixed_w = _fixed_h = 0
         self._interval_frame.pack(before=self._sep, fill="x", padx=10, pady=3)
         for frame in (self._weekly_frame, self._monthly_frame):

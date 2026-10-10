@@ -21,7 +21,7 @@ class SyncMixin:
 
     _MAX_SYNC_CONFLICTS = 5
 
-    # ── Background work ───────────────────────────────────────────────────────
+    # -- Background work -------------------------------------------------------
 
     @property
     def is_syncing(self) -> bool:
@@ -49,7 +49,7 @@ class SyncMixin:
 
         threading.Thread(target=_run, daemon=True).start()
 
-    # ── Change + upload ───────────────────────────────────────────────────────
+    # -- Change + upload -------------------------------------------------------
 
     def _commit(self, op, on_sync_done=None) -> None:
         """Apply op locally, save, and upload without overwriting others' changes.
@@ -242,7 +242,7 @@ class SyncMixin:
                 "both" if "both" in changed or len(changed) > 1 else changed.pop())
         return dropped
 
-    # ── Download (all users) ──────────────────────────────────────────────────
+    # -- Download (all users) --------------------------------------------------
 
     def sync_pull(self, on_done=None, request_trust=None) -> None:
         """Download a newer calendar.json in the background.

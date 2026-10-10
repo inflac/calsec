@@ -14,7 +14,7 @@ def isolate(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "_current", dict(settings._DEFAULTS))
 
 
-# ── defaults ──────────────────────────────────────────────────────────────────
+# -- defaults ------------------------------------------------------------------
 
 def test_default_theme():
     assert settings.get("theme") == "dark"
@@ -40,7 +40,7 @@ def test_unknown_key_returns_none():
     assert settings.get("nonexistent_key") is None
 
 
-# ── load ──────────────────────────────────────────────────────────────────────
+# -- load ----------------------------------------------------------------------
 
 def test_load_uses_defaults_when_no_file():
     settings.load()
@@ -72,7 +72,7 @@ def test_load_handles_corrupt_file():
     assert settings.get("theme") == "dark"
 
 
-# ── set / get ─────────────────────────────────────────────────────────────────
+# -- set / get -----------------------------------------------------------------
 
 def test_set_updates_in_memory():
     settings.set("theme", "light")
@@ -116,7 +116,7 @@ def test_save_uses_atomic_replace(monkeypatch):
     assert target["called"] is True
 
 
-# ── save / load roundtrip ─────────────────────────────────────────────────────
+# -- save / load roundtrip -----------------------------------------------------
 
 def test_save_load_roundtrip():
     settings.set("theme", "light")

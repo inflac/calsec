@@ -220,10 +220,10 @@ class Application(tk.Tk):
     def _start(self):
         if not storage.is_provisioned():
             if storage.find_user_key_hashes():
-                # Keys exist locally but no calendar yet — fetch from server
+                # Keys exist locally but no calendar yet - fetch from server
                 self._show_fetch()
             else:
-                # No keys and no calendar — first-time admin setup
+                # No keys and no calendar - first-time admin setup
                 self._show_provision()
         else:
             self._show_login()

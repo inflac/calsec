@@ -1,7 +1,7 @@
 """
 Tails OS inspired theme for tkinter / ttk.
 
-Two palettes — dark and light — both using Tails' brand purple (#56347c).
+Two palettes - dark and light - both using Tails' brand purple (#56347c).
 Call apply(root, mode) once at startup and again whenever the mode changes.
 All module-level colour constants are updated in-place so widgets recreated
 after the call automatically get the new palette.
@@ -100,7 +100,7 @@ def _load_palette(mode: str) -> None:
 
 def _apply_tk_options(root: tk.Tk) -> None:
     """Set X-resource defaults for plain tk widgets (Text, Toplevel, …)."""
-    P = "80"   # priority — overrides theme defaults but not widget-level settings
+    P = "80"   # priority - overrides theme defaults but not widget-level settings
     root.option_add("*Background",           BG,     P)
     root.option_add("*Foreground",           FG,     P)
     root.option_add("*activeBackground",     BG_ALT, P)

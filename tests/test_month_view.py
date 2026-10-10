@@ -51,7 +51,7 @@ def _empty_spot_of_day(view, day: date):
     return FakeEvent(int((x0 + x1) / 2), int(y1) - 4)
 
 
-# ── layout ────────────────────────────────────────────────────────────────────
+# -- layout --------------------------------------------------------------------
 
 def test_weeks_start_on_monday_and_cover_the_month(make_view):
     weeks = make_view([])._weeks()
@@ -106,7 +106,7 @@ def test_long_titles_are_shortened(make_view):
     assert v._fit("Hi", 80) == "Hi"
 
 
-# ── selection ─────────────────────────────────────────────────────────────────
+# -- selection -----------------------------------------------------------------
 
 def test_click_selects_chip(make_view):
     v = make_view([_entry("a", 5), _entry("b", 6)])
@@ -150,7 +150,7 @@ def test_set_data_drops_selection_of_vanished_entries(make_view):
     assert v.selected_base_ids() == []
 
 
-# ── double-click ──────────────────────────────────────────────────────────────
+# -- double-click --------------------------------------------------------------
 
 def test_double_click_chip_opens_entry(make_view):
     v = make_view([_entry("a", 5)])

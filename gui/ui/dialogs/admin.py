@@ -93,7 +93,7 @@ class SyncConfigDialog(tk.Toplevel):
 
 
 class AddUserDialog(tk.Toplevel):
-    """Admin: add a new user — generate keypair or register an existing public key."""
+    """Admin: add a new user - generate keypair or register an existing public key."""
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -103,8 +103,8 @@ class AddUserDialog(tk.Toplevel):
         self.resizable(False, False)
 
         # result: (identifier, kpub_or_None, password_or_None, role)
-        # kpub_or_None — cryptography public key object if user provided their own
-        # password_or_None — bytes if keypair should be generated with this password
+        # kpub_or_None - cryptography public key object if user provided their own
+        # password_or_None - bytes if keypair should be generated with this password
         self.result = None
 
         pad = _PAD
@@ -352,7 +352,7 @@ class UserManagementDialog(tk.Toplevel):
                 initialfile=f"{h}.pem",
             )
             if not save_path:
-                return  # user cancelled — nothing written yet
+                return  # user cancelled - nothing written yet
 
         try:
             kpriv_bytes = self._app.add_user(

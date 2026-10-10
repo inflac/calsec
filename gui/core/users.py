@@ -28,7 +28,7 @@ def _get_identifier_enc(user_entry: dict) -> dict:
 class UsersMixin:
     """Admin-only changes to users, roles, signing keys and sync config."""
 
-    # ── Signing keys ──────────────────────────────────────────────────────────
+    # -- Signing keys ----------------------------------------------------------
 
     def _private_key_pem(self, kpriv) -> bytes:
         if kpriv is None:
@@ -80,7 +80,7 @@ class UsersMixin:
             for user_entry in self._users.values():
                 self._apply_signing_keys_for_role(user_entry)
 
-    # ── Sync config (admin only) ──────────────────────────────────────────────
+    # -- Sync config (admin only) ----------------------------------------------
 
     def update_sync_config(self, sync_data: dict | None, on_sync_done=None):
         if not self._is_admin:
@@ -96,7 +96,7 @@ class UsersMixin:
 
         self._commit(op, on_sync_done)
 
-    # ── Users (admin only) ────────────────────────────────────────────────────
+    # -- Users (admin only) ----------------------------------------------------
 
     def list_users(self) -> list[dict]:
         """Return [{hash, identifier, role}] for all registered users."""

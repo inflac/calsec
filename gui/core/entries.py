@@ -13,7 +13,7 @@ from crypto import encrypt_entry
 class EntriesMixin:
     """Entry queries (all users) and mutations (editors and admins)."""
 
-    # ── Queries ───────────────────────────────────────────────────────────────
+    # -- Queries ---------------------------------------------------------------
 
     def get_entries(self) -> list[dict]:
         """Return all decrypted entry dicts, sorted by timestamp."""
@@ -65,7 +65,7 @@ class EntriesMixin:
         result.sort(key=lambda x: x.get("timestamp", 0))
         return result
 
-    # ── Mutations (editor + admin) ────────────────────────────────────────────
+    # -- Mutations (editor + admin) --------------------------------------------
 
     def add_entry(self, title: str, date_str: str, time_str: str,
                   comments: list[str], color: str | None = None,
@@ -115,7 +115,7 @@ class EntriesMixin:
                 and existing.get("comments", []) == comments
                 and existing.get("color") == color
                 and existing.get("recurrence") == recurrence):
-            return  # nothing changed — skip save and sync
+            return  # nothing changed - skip save and sync
 
         date_dt = datetime.strptime(date_str, "%d.%m.%Y")
         if time_str not in ("all-day", "unknown"):

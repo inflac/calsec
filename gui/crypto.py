@@ -27,7 +27,7 @@ def derive_key(shared: bytes, salt: bytes) -> bytes:
     ).derive(shared)
 
 
-# ── Symmetric (AES-256-GCM) ───────────────────────────────────────────────────
+# -- Symmetric (AES-256-GCM) ---------------------------------------------------
 
 def sym_encrypt(key: bytes, plaintext: bytes, aad: bytes | None = None) -> dict:
     """AES-256-GCM encrypt. Returns {iv, ct} as base64 strings."""
@@ -41,7 +41,7 @@ def sym_decrypt(key: bytes, enc: dict, aad: bytes | None = None) -> bytes:
     return AESGCM(key).decrypt(b64d(enc["iv"]), b64d(enc["ct"]), aad)
 
 
-# ── ECIES (EC public-key encryption) ─────────────────────────────────────────
+# -- ECIES (EC public-key encryption) -----------------------------------------
 
 def ecies_encrypt(kpub: ec.EllipticCurvePublicKey, plaintext: bytes) -> dict:
     """Encrypt *plaintext* to *kpub* via ephemeral ECDH + HKDF + AES-256-GCM.
@@ -67,7 +67,7 @@ def ecies_decrypt(kpriv: ec.EllipticCurvePrivateKey, enc: dict) -> bytes:
     return sym_decrypt(wrap_key, enc)
 
 
-# ── Entry encryption ──────────────────────────────────────────────────────────
+# -- Entry encryption ----------------------------------------------------------
 
 def encrypt_entry(data: dict, sym_key_cal: bytes) -> dict:
     """Encrypt a calendar entry with a per-entry AES-256 key wrapped by sym_key_cal.
@@ -89,7 +89,7 @@ def decrypt_entry(enc_entry: dict, sym_key_cal: bytes) -> dict:
     return json.loads(plaintext)
 
 
-# ── Public key helpers ────────────────────────────────────────────────────────
+# -- Public key helpers --------------------------------------------------------
 
 def pem_to_public_key(pem_str: str):
     """Load an EC public key from a PEM string."""
@@ -122,7 +122,7 @@ def format_fingerprint(value: str, group: int = 4) -> str:
     ).upper()
 
 
-# ── File signing — two independent sections ───────────────────────────────────
+# -- File signing - two independent sections -----------------------------------
 #
 # sig_users   covers version + sign_keys + users + sync_config → signed with kpriv_admin_sign
 # sig_entries covers version + entries only → signed with kpriv_edit_sign

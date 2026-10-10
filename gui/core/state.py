@@ -129,9 +129,9 @@ class StateMixin:
     def _write_local(self, changed: str) -> None:
         """Sign the changed section(s), then save and reload the local file.
 
-        changed: "entries" — re-signs entries only (requires kpriv_edit_sign)
-                 "users"   — re-signs users+sync_config block (requires kpriv_admin_sign)
-                 "both"    — re-signs both (requires both keys; used on key rotation)
+        changed: "entries" - re-signs entries only (requires kpriv_edit_sign)
+                 "users"   - re-signs users+sync_config block (requires kpriv_admin_sign)
+                 "both"    - re-signs both (requires both keys; used on key rotation)
         """
         if changed in ("entries", "both") and self._kpriv_edit_sign is None:
             raise RuntimeError(i18n._("app_err_only_editors_save"))

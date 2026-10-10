@@ -1,4 +1,4 @@
-"""Integration tests for CalendarApp — provisions real storage, no mocking of crypto."""
+"""Integration tests for CalendarApp - provisions real storage, no mocking of crypto."""
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -43,7 +43,7 @@ def provisioned(tmp_path, monkeypatch):
     return cal, h
 
 
-# ── Properties ────────────────────────────────────────────────────────────────
+# -- Properties ----------------------------------------------------------------
 
 def test_role_is_admin(provisioned):
     cal, _ = provisioned
@@ -70,7 +70,7 @@ def test_fingerprint_present(provisioned):
     assert len(cal.fingerprint) == 64
 
 
-# ── Entries — initial state ───────────────────────────────────────────────────
+# -- Entries - initial state ---------------------------------------------------
 
 def test_get_entries_initially_empty(provisioned):
     cal, _ = provisioned
@@ -82,7 +82,7 @@ def test_get_entries_for_month_initially_empty(provisioned):
     assert cal.get_entries_for_month(2026, 1) == []
 
 
-# ── add_entry / get_entries ───────────────────────────────────────────────────
+# -- add_entry / get_entries ---------------------------------------------------
 
 def test_add_entry_appears_in_get_entries(provisioned):
     cal, _ = provisioned
@@ -126,7 +126,7 @@ def test_add_multiple_entries_sorted_by_timestamp(provisioned):
     assert entries[1]["title"] == "Late"
 
 
-# ── update_entry ──────────────────────────────────────────────────────────────
+# -- update_entry --------------------------------------------------------------
 
 def test_update_entry_changes_title(provisioned):
     cal, _ = provisioned
@@ -144,7 +144,7 @@ def test_update_nonexistent_entry_is_noop(provisioned):
     assert cal.get_entries() == []
 
 
-# ── delete_entry ──────────────────────────────────────────────────────────────
+# -- delete_entry --------------------------------------------------------------
 
 def test_delete_entry_removes_it(provisioned):
     cal, _ = provisioned
@@ -159,7 +159,7 @@ def test_delete_nonexistent_entry_returns_false(provisioned):
     assert cal.delete_entries(["nonexistent-id"]) is False
 
 
-# ── User management ───────────────────────────────────────────────────────────
+# -- User management -----------------------------------------------------------
 
 def test_list_users_contains_admin(provisioned):
     cal, h = provisioned
@@ -225,7 +225,7 @@ def test_remove_user_non_admin_raises(provisioned):
         viewer_cal.remove_user("somehash")
 
 
-# ── Signature verification on reload ─────────────────────────────────────────
+# -- Signature verification on reload -----------------------------------------
 
 def test_tampered_file_raises_on_reload(provisioned):
     cal, _ = provisioned
@@ -236,7 +236,7 @@ def test_tampered_file_raises_on_reload(provisioned):
         cal._reload()
 
 
-# ── Translated messages ───────────────────────────────────────────────────────
+# -- Translated messages -------------------------------------------------------
 
 def test_errors_follow_selected_language(provisioned):
     import i18n
@@ -259,7 +259,7 @@ def test_sync_pull_without_config_reports_info_not_error(provisioned):
     assert results == [(i18n._("sync_not_configured"), False)]
 
 
-# ── Concurrent changes ────────────────────────────────────────────────────────
+# -- Concurrent changes --------------------------------------------------------
 
 import json  # noqa: E402
 import threading  # noqa: E402

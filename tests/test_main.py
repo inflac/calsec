@@ -1,11 +1,11 @@
-"""Tests for pure business logic in core/ — no tkinter, no I/O."""
+"""Tests for pure business logic in core/ - no tkinter, no I/O."""
 from datetime import date
 
 import pytest
 
 from core import onboarding, recurrence
 
-# ── nth_weekday_of_month ─────────────────────────────────────────────────────
+# -- nth_weekday_of_month -----------------------------------------------------
 
 def test_first_monday_of_january_2026():
     # 2026-01-05 is the first Monday
@@ -31,7 +31,7 @@ def test_second_wednesday():
     assert result == date(2026, 1, 14)
 
 
-# ── expand_recurrence ─────────────────────────────────────────────────────────
+# -- expand_recurrence ---------------------------------------------------------
 
 def _entry(date_str: str, **rec_kwargs) -> dict:
     rec = {"freq": "daily", "interval": 1, "end_mode": "never"}

@@ -140,15 +140,15 @@ def provision(admin_identifier: str, admin_password: bytes,
     """Generate two signing keypairs + admin encryption keypair, write calendar.json v4.
 
     Two sign keys with separate authority:
-      kpriv_admin_sign — signs the users+sync_config block; stored ECIES-encrypted for admins only.
-      kpriv_edit_sign  — signs entries; stored ECIES-encrypted for admins+editors.
+      kpriv_admin_sign - signs the users+sync_config block; stored ECIES-encrypted for admins only.
+      kpriv_edit_sign  - signs entries; stored ECIES-encrypted for admins+editors.
     Both public keys are embedded in sign_keys in calendar.json.
     """
     from crypto import b64, ecies_encrypt, sign_entries, sign_users, sym_encrypt
 
     os.makedirs(KEYS_DIR, exist_ok=True)
 
-    # Admin sign keypair — controls user management
+    # Admin sign keypair - controls user management
     kpriv_admin_sign = ec.generate_private_key(ec.SECP256R1())
     admin_sign_key_pem = kpriv_admin_sign.private_bytes(
         serialization.Encoding.PEM,
@@ -156,7 +156,7 @@ def provision(admin_identifier: str, admin_password: bytes,
         serialization.NoEncryption(),
     )
 
-    # Edit sign keypair — controls entries
+    # Edit sign keypair - controls entries
     kpriv_edit_sign = ec.generate_private_key(ec.SECP256R1())
     edit_sign_key_pem = kpriv_edit_sign.private_bytes(
         serialization.Encoding.PEM,

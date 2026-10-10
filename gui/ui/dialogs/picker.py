@@ -24,7 +24,7 @@ class DatePickerDialog(tk.Toplevel):
         _center_dialog(self, parent)
 
     def _build_ui(self):
-        # Small arrow button style — only needs to be configured once
+        # Small arrow button style - only needs to be configured once
         s = ttk.Style()
         s.configure("Arrow.TButton", padding=(3, 1), font=("Cantarell", 7))
 

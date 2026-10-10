@@ -18,7 +18,7 @@ class SettingsDialog(tk.Toplevel):
 
         import settings as _settings
 
-        # ── Language ──────────────────────────────────────────────────────────
+        # -- Language ----------------------------------------------------------
         ttk.Label(self, text=i18n._("settings_lang_section"),
                   font=("Cantarell", 10, "bold")).pack(
             anchor="w", padx=14, pady=(14, 2))
@@ -34,7 +34,7 @@ class SettingsDialog(tk.Toplevel):
 
         ttk.Separator(self, orient="horizontal").pack(fill="x", padx=10, pady=4)
 
-        # ── Updates ───────────────────────────────────────────────────────────
+        # -- Updates -----------------------------------------------------------
         ttk.Label(self, text=i18n._("settings_update_section"),
                   font=("Cantarell", 10, "bold")).pack(
             anchor="w", padx=14, pady=(6, 2))
@@ -91,7 +91,7 @@ class SettingsDialog(tk.Toplevel):
 
         self._toggle_update_widgets()
 
-        # ── Buttons ───────────────────────────────────────────────────────────
+        # -- Buttons -----------------------------------------------------------
         ttk.Separator(self, orient="horizontal").pack(fill="x", padx=10, pady=(10, 4))
         btn_frame = ttk.Frame(self)
         btn_frame.pack(pady=(0, 14))
@@ -145,11 +145,11 @@ class UpdateDialog(tk.Toplevel):
     """
     Shown at startup (auto mode) or when the user clicks the update toolbar button.
 
-    auto mode   — can_skip=False, update_info=None:
+    auto mode   - can_skip=False, update_info=None:
         Checks for updates, then downloads and installs without asking.
         Cannot be dismissed until finished or an error occurs.
 
-    notify mode — can_skip=True, update_info=<UpdateInfo>:
+    notify mode - can_skip=True, update_info=<UpdateInfo>:
         Starts downloading an already-found update.
         The user can cancel.
     """
@@ -192,7 +192,7 @@ class UpdateDialog(tk.Toplevel):
                 command=self.destroy)
             self._cancel_btn.pack(side="left", padx=6)
         else:
-            # "Continue anyway" — only enabled on error
+            # "Continue anyway" - only enabled on error
             self._continue_btn = ttk.Button(
                 self._btn_frame, text=i18n._("btn_continue"),
                 command=self.destroy, state="disabled")
@@ -206,7 +206,7 @@ class UpdateDialog(tk.Toplevel):
         else:
             threading.Thread(target=self._do_download, daemon=True).start()
 
-    # ── Background workers ────────────────────────────────────────────────────
+    # -- Background workers ----------------------------------------------------
 
     def _do_check(self):
         try:

@@ -11,7 +11,7 @@ def reset_lang():
     i18n.load("en")
 
 
-# ── load ──────────────────────────────────────────────────────────────────────
+# -- load ----------------------------------------------------------------------
 
 def test_load_german():
     i18n.load("de")
@@ -28,7 +28,7 @@ def test_load_unknown_falls_back_to_german():
     assert i18n.get() == "de"
 
 
-# ── _ (translate) ─────────────────────────────────────────────────────────────
+# -- _ (translate) -------------------------------------------------------------
 
 def test_translate_known_key_german():
     i18n.load("de")
@@ -56,7 +56,7 @@ def test_translate_switches_on_reload():
     assert de_val != en_val
 
 
-# ── list constants ────────────────────────────────────────────────────────────
+# -- list constants ------------------------------------------------------------
 
 def test_months_populated_after_load():
     i18n.load("de")

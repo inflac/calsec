@@ -13,7 +13,7 @@ def isolate(tmp_path, monkeypatch):
     monkeypatch.setattr(storage, "DATA_FILE", str(tmp_path / "calendar.json"))
 
 
-# ── identifier_to_hash ────────────────────────────────────────────────────────
+# -- identifier_to_hash --------------------------------------------------------
 
 def test_identifier_to_hash_length():
     assert len(storage.identifier_to_hash("alice@example.com")) == 32
@@ -37,7 +37,7 @@ def test_email_to_hash_alias_matches_identifier_hash():
     assert storage.email_to_hash("alice@example.com") == storage.identifier_to_hash("alice@example.com")
 
 
-# ── find_user_key_hashes ──────────────────────────────────────────────────────
+# -- find_user_key_hashes ------------------------------------------------------
 
 def test_find_user_key_hashes_empty_when_no_dir():
     assert storage.find_user_key_hashes() == []
@@ -53,7 +53,7 @@ def test_find_user_key_hashes_returns_pem_stems(tmp_path, monkeypatch):
     assert result == ["abcd1234abcd1234"]
 
 
-# ── load_file_raw ─────────────────────────────────────────────────────────────
+# -- load_file_raw -------------------------------------------------------------
 
 def test_load_file_raw_returns_empty_when_missing():
     assert storage.load_file_raw() == {}
@@ -75,7 +75,7 @@ def test_load_file_raw_raises_on_invalid_json():
         storage.load_file_raw()
 
 
-# ── save_file ─────────────────────────────────────────────────────────────────
+# -- save_file -----------------------------------------------------------------
 
 def test_save_file_writes_json():
     data = {"version": 4, "entries": [], "users": {}}
@@ -110,7 +110,7 @@ def test_save_file_raises_on_write_failure(monkeypatch):
         storage.save_file({"version": 4})
 
 
-# ── is_provisioned ────────────────────────────────────────────────────────────
+# -- is_provisioned ------------------------------------------------------------
 
 def test_is_provisioned_false_when_no_file():
     assert storage.is_provisioned() is False
@@ -126,7 +126,7 @@ def test_is_provisioned_true_when_users_present():
     assert storage.is_provisioned() is True
 
 
-# ── save_user_key_file / load_user_private_key ────────────────────────────────
+# -- save_user_key_file / load_user_private_key --------------------------------
 
 def _generate_pem_key(password: bytes | None = None):
     kpriv = ec.generate_private_key(ec.SECP256R1())
@@ -168,7 +168,7 @@ def test_load_user_private_key_missing(tmp_path, monkeypatch):
         storage.load_user_private_key("nonexistent", None)
 
 
-# ── provision ─────────────────────────────────────────────────────────────────
+# -- provision -----------------------------------------------------------------
 
 def test_provision_creates_calendar_file():
     storage.provision("admin@example.com", b"password123", None)

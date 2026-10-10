@@ -9,7 +9,7 @@ access the module-level list constants (MONTHS, WD_SHORT, etc.).
 _strings: dict = {}
 _lang: str = "de"
 
-# Translatable list/dict constants — populated by load()
+# Translatable list/dict constants - populated by load()
 MONTHS: list[str]    = []
 WD_SHORT: list[str]  = []
 WD_LONG: list[str]   = []

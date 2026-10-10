@@ -39,7 +39,7 @@ class UpdateInfo:
     download_url: str
 
 
-# ── Version helpers ────────────────────────────────────────────────────────────
+# -- Version helpers ------------------------------------------------------------
 
 def current_version() -> str:
     try:
@@ -57,7 +57,7 @@ def _version_tuple(v: str) -> tuple:
         return (0,)
 
 
-# ── Channel / asset resolution ─────────────────────────────────────────────────
+# -- Channel / asset resolution -------------------------------------------------
 
 def _channel_url() -> str:
     import settings
@@ -71,7 +71,7 @@ def _asset_name() -> str:
     return _ASSET_NAME if sys.platform.startswith("linux") else ""
 
 
-# ── HTTP session ───────────────────────────────────────────────────────────────
+# -- HTTP session ---------------------------------------------------------------
 
 def _session():
     """Return a requests.Session configured for Tor if torsocks is active."""
@@ -92,7 +92,7 @@ def _session():
     return s
 
 
-# ── Public API ─────────────────────────────────────────────────────────────────
+# -- Public API -----------------------------------------------------------------
 
 def check_for_update() -> UpdateInfo | None:
     """
@@ -166,7 +166,7 @@ def download_update(
     return Path(tmp)
 
 
-# ── Signature verification ─────────────────────────────────────────────────────
+# -- Signature verification -----------------------------------------------------
 
 def _verify_release_signature(binary: Path, binary_url: str) -> None:
     """
@@ -186,7 +186,7 @@ def _verify_release_signature(binary: Path, binary_url: str) -> None:
     resp = _session().get(sig_url, timeout=15)
     if resp.status_code == 404:
         raise ValueError(
-            "Signature verification failed — the release signature file is missing. "
+            "Signature verification failed - the release signature file is missing. "
             "Aborting update."
         )
     resp.raise_for_status()
@@ -205,7 +205,7 @@ def _verify_release_signature(binary: Path, binary_url: str) -> None:
         pub_key.verify(signature, data)
     except InvalidSignature as exc:
         raise ValueError(
-            "Signature verification failed — the downloaded binary does not "
+            "Signature verification failed - the downloaded binary does not "
             "match the expected signature. Aborting update."
         ) from exc
 
@@ -217,7 +217,7 @@ def apply_update(new_binary: Path) -> None:
     Replaces the binary atomically, then spawns a detached fresh process with
     close_fds=True to avoid inheriting X11 sockets or other open handles.
     Falls back to copy+delete when tmp and exe live on different filesystems
-    (EXDEV — common on Tails where /tmp is tmpfs).
+    (EXDEV - common on Tails where /tmp is tmpfs).
     """
     import errno
     import shutil
@@ -233,7 +233,7 @@ def apply_update(new_binary: Path) -> None:
     except OSError as exc:
         if exc.errno in (errno.EXDEV, errno.ETXTBSY):
             # EXDEV:   /tmp and install dir are on different filesystems
-            # ETXTBSY: binary is currently executing — unlink first, then copy
+            # ETXTBSY: binary is currently executing - unlink first, then copy
             try:
                 os.unlink(exe)
             except OSError:
@@ -251,4 +251,4 @@ def apply_update(new_binary: Path) -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    os._exit(0)  # hard exit — bypasses tkinter mainloop to close all windows
+    os._exit(0)  # hard exit - bypasses tkinter mainloop to close all windows

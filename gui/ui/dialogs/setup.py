@@ -199,7 +199,7 @@ class ProvisionDialog(tk.Toplevel):
 
         pad = _PAD
 
-        # ── Language selector ─────────────────────────────────────────────────
+        # -- Language selector -------------------------------------------------
         lang_frame = ttk.Frame(self)
         lang_frame.grid(row=0, column=0, columnspan=2, sticky="e", padx=10, pady=(10, 0))
         self._lang_var = tk.StringVar(value=i18n.get())
@@ -211,7 +211,7 @@ class ProvisionDialog(tk.Toplevel):
         ttk.Separator(self, orient="horizontal").grid(
             row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(6, 2))
 
-        # ── Admin account ─────────────────────────────��───────────────────────
+        # -- Admin account -----------------------------------------------------
         ttk.Label(self, text=i18n._("provision_admin_label")).grid(
             row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(8, 2))
 

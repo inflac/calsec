@@ -50,7 +50,7 @@ class ListView(ttk.Frame):
         self._tree.bind("<Double-1>",         self._on_double_click)
         self._tree.bind("<<TreeviewSelect>>", self._on_selection_change)
 
-    # ── Public API ────────────────────────────────────────────────────────────
+    # -- Public API ------------------------------------------------------------
 
     def set_data(self, year: int, month: int, entries: list[dict]) -> None:
         self._tree.delete(*self._tree.get_children())
@@ -115,7 +115,7 @@ class ListView(ttk.Frame):
                 seen.append(base)
         return seen
 
-    # ── Events ────────────────────────────────────────────────────────────────
+    # -- Events ----------------------------------------------------------------
 
     def _on_selection_change(self, _event):
         headers = [iid for iid in self._tree.selection() if _is_header(iid)]

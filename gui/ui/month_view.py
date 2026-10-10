@@ -51,7 +51,7 @@ class MonthView(tk.Canvas):
         self.bind("<Control-Button-1>", lambda e: self._on_click(e, toggle=True))
         self.bind("<Double-Button-1>", self._on_double_click)
 
-    # ── Public API ────────────────────────────────────────────────────────────
+    # -- Public API ------------------------------------------------------------
 
     def set_data(self, year: int, month: int, entries: list[dict]) -> None:
         self._year, self._month = year, month
@@ -69,7 +69,7 @@ class MonthView(tk.Canvas):
                 seen.append(base)
         return seen
 
-    # ── Drawing ───────────────────────────────────────────────────────────────
+    # -- Drawing ---------------------------------------------------------------
 
     def _schedule_redraw(self):
         if not self._redraw_pending:
@@ -205,7 +205,7 @@ class MonthView(tk.Canvas):
             text = text[:-1]
         return text + "…" if text else ""
 
-    # ── Hit testing / events ──────────────────────────────────────────────────
+    # -- Hit testing / events --------------------------------------------------
 
     def _tags_at(self, event) -> tuple:
         items = self.find_overlapping(event.x, event.y, event.x, event.y)

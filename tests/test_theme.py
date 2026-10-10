@@ -2,7 +2,7 @@ from tkinter import ttk
 
 import theme
 
-# ── blend ─────────────────────────────────────────────────────────────────────
+# -- blend ---------------------------------------------------------------------
 
 def test_blend_alpha_zero_returns_base():
     assert theme.blend("#ff0000", "#000000", 0) == "#000000"
@@ -25,7 +25,7 @@ def test_blend_accepts_colors_without_hash():
     assert theme.blend("ff0000", "000000", 1) == "#ff0000"
 
 
-# ── apply ─────────────────────────────────────────────────────────────────────
+# -- apply ---------------------------------------------------------------------
 
 def test_apply_switches_palette(tk_root):
     theme.apply(tk_root, "light")

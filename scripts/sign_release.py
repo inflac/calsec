@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CI signing script — called by the GitHub Actions release workflow.
+CI signing script - called by the GitHub Actions release workflow.
 
 Signs a binary with the Ed25519 private key stored in the environment
 variable RELEASE_SIGNING_KEY, and writes a base64-encoded signature to

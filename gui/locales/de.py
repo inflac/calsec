@@ -23,7 +23,7 @@ FREQ_UNITS = {
 POS_OPTS = [("1.", "1"), ("2.", "2"), ("3.", "3"), ("4.", "4"), ("Letzten", "-1")]
 
 STRINGS = {
-    # ── Generic ───────────────────────────────────────────────────────────────
+    # -- Generic ---------------------------------------------------------------
     "btn_ok":                   "OK",
     "btn_yes":                  "Ja",
     "btn_no":                   "Nein",
@@ -33,7 +33,7 @@ STRINGS = {
     "btn_close":                "Schließen",
     "lbl_email":                "Identifier:",
     "lbl_webdav_url":           "WebDAV-Ordner-URL:",
-    "lbl_webdav_url_hint":      "Ordner-URL — /calendar.json wird automatisch angehängt",
+    "lbl_webdav_url_hint":      "Ordner-URL - /calendar.json wird automatisch angehängt",
     "lbl_username":             "Benutzername:",
     "lbl_app_password":         "App-Passwort:",
     "lbl_fingerprint":          "Fingerprint:",
@@ -49,7 +49,7 @@ STRINGS = {
     "err_url_invalid_title":    "Ungültige URL",
     "err_url_invalid_body":     "URL muss mit http:// oder https:// beginnen.\n\nMeintest du: https://{url} ?",
 
-    # ── LoginFrame ────────────────────────────────────────────────────────────
+    # -- LoginFrame ------------------------------------------------------------
     "login_subtitle":           "Encrypted Calendar",
     "login_password":           "Passwort:",
     "btn_unlock":               "Entsperren",
@@ -64,7 +64,7 @@ STRINGS = {
     "setup_done_body_pw":       "Schlüssel generiert. Bitte mit dem Passwort entsperren.",
     "setup_done_fingerprint":   "Signatur-Fingerprint:\n{fingerprint}\n\nDiesen Fingerprint über einen separaten vertrauenswürdigen Kanal an neue Benutzer weitergeben.",
 
-    # ── FetchCalendarDialog ───────────────────────────────────────────────────
+    # -- FetchCalendarDialog ---------------------------------------------------
     "fetch_title":              "Kalender herunterladen",
     "fetch_description":        "Lokaler Schlüssel gefunden, aber noch kein Kalender.\nNextcloud-Zugangsdaten eingeben, um den Kalender\neinmalig herunterzuladen.",
     "btn_download":             "Herunterladen",
@@ -73,8 +73,8 @@ STRINGS = {
     "status_connecting":        "Verbinde…",
     "err_no_sign_keys":         "Fehler: Datei enthält keine Signierschlüssel.",
     "err_signatures_missing":   "Fehler: Signaturen fehlen in der heruntergeladenen Datei.",
-    "err_user_sig_invalid":     "Fehler: Benutzersignatur ungültig — Datei manipuliert?",
-    "err_entry_sig_invalid":    "Fehler: Eintrags-Signatur ungültig — Datei manipuliert?",
+    "err_user_sig_invalid":     "Fehler: Benutzersignatur ungültig - Datei manipuliert?",
+    "err_entry_sig_invalid":    "Fehler: Eintrags-Signatur ungültig - Datei manipuliert?",
     "err_fingerprint_required": "Bitte den 64-stelligen Hex-Fingerprint eingeben, den du vom Admin erhalten hast.",
     "err_fingerprint_mismatch": "Fehler: Signatur-Fingerprint stimmt nicht überein.\nEmpfangener Fingerprint:\n{fingerprint}",
     "trust_sign_keys_title":    "Neue Signierschlüssel bestätigen",
@@ -82,13 +82,13 @@ STRINGS = {
     "err_key_not_registered":   "Fehler: Kein lokaler Schlüssel ist in diesem Kalender\nregistriert. Bitte den Admin bitten, deinen Key hinzuzufügen.",
     "err_generic":              "Fehler: {exc}",
 
-    # ── ProvisionDialog ───────────────────────────────────────────────────────
-    "provision_title":          "Setup — Erstkonfiguration",
+    # -- ProvisionDialog -------------------------------------------------------
+    "provision_title":          "Setup - Erstkonfiguration",
     "provision_admin_label":    "Admin-Konto einrichten:",
     "provision_webdav_hint":    "WebDAV Sync (URL leer lassen zum Überspringen):",
     "btn_generate_key":         "Schlüssel generieren",
 
-    # ── AddEntryDialog ────────────────────────────────────────────────────────
+    # -- AddEntryDialog --------------------------------------------------------
     "add_entry_title":          "Eintrag hinzufügen",
     "edit_entry_title":         "Eintrag bearbeiten",
     "lbl_title":                "Titel:",
@@ -104,16 +104,16 @@ STRINGS = {
     "err_date_invalid":         "Ungültiges Datum. Format: TT.MM.JJJJ",
     "err_time_invalid":         "Ungültige Uhrzeit. Format: HH:MM, all-day oder unknown.",
 
-    # ── SyncConfigDialog ──────────────────────────────────────────────────────
+    # -- SyncConfigDialog ------------------------------------------------------
     "sync_title":               "Sync-Einstellungen",
     "sync_hint":                "WebDAV-URL leer lassen, um Sync zu deaktivieren.",
 
-    # ── Sync status / error messages ──────────────────────────────────────────
+    # -- Sync status / error messages ------------------------------------------
     "sync_not_configured":      "Kein Sync konfiguriert.",
     "sync_err_no_requests":     "Sync: 'requests'-Bibliothek nicht installiert.",
     "sync_file_not_found":      "Sync: {file} nicht gefunden, übersprungen.",
     "sync_err_read_failed":     "Sync: Kalenderdatei konnte nicht gelesen werden.",
-    "sync_err_invalid_url":     "Sync: Ungültige URL '{url}' — URL muss mit http:// oder https:// beginnen.",
+    "sync_err_invalid_url":     "Sync: Ungültige URL '{url}' - URL muss mit http:// oder https:// beginnen.",
     "sync_err_ssl":             "Sync: SSL-Zertifikatsüberprüfung fehlgeschlagen.",
     "sync_err_connection":      "Sync: Keine Verbindung zum Server.",
     "sync_err_timeout":         "Sync: Verbindungs-Timeout.",
@@ -144,7 +144,7 @@ STRINGS = {
     "sync_pending_dropped":      "{msg} Deine noch nicht hochgeladenen Änderungen wurden verworfen, weil sich die Signierschlüssel geändert haben. Bitte melde dich neu an und wiederhole sie.",
     "sync_err_load_failed":      "Sync: Der neue Stand vom Server konnte nicht geladen werden. Bitte melde dich neu an.",
 
-    # ── CalendarApp errors ────────────────────────────────────────────────────
+    # -- CalendarApp errors ----------------------------------------------------
     "app_err_sync_config_unavailable": "Sync-Konfiguration ist nicht verfügbar.",
     "app_err_missing_sign_keys": "Der Kalenderdatei fehlen die Signierschlüssel.",
     "app_err_missing_signatures": "Der Kalenderdatei fehlen die Signaturen.",
@@ -171,7 +171,7 @@ STRINGS = {
     "app_err_rotation_identifier": "Kennung von Benutzer {user} konnte nicht neu verschlüsselt werden.",
     "app_err_rotation_sync_config": "Die Sync-Konfiguration konnte bei der Schlüsselrotation nicht neu verschlüsselt werden.",
 
-    # ── RecurrenceDialog ──────────────────────────────────────────────────────
+    # -- RecurrenceDialog ------------------------------------------------------
     "recurrence_title":         "Wiederholung",
     "lbl_frequency":            "Frequenz:",
     "lbl_every":                "Alle:",
@@ -191,7 +191,7 @@ STRINGS = {
     "err_end_date_invalid":     "Ungültiges Enddatum. Format: TT.MM.JJJJ",
     "err_count_invalid":        "Anzahl muss ≥ 1 sein.",
 
-    # ── Recurrence summary ────────────────────────────────────────────────────
+    # -- Recurrence summary ----------------------------------------------------
     "rec_none":                 "-",
     "rec_daily":                "Täglich",
     "rec_every_n_days":         "Alle {n} Tage",
@@ -203,7 +203,7 @@ STRINGS = {
     "rec_every_n_years":        "Alle {n} Jahre",
     "rec_on_day":               "am {day}.",
 
-    # ── ViewEntryDialog ───────────────────────────────────────────────────────
+    # -- ViewEntryDialog -------------------------------------------------------
     "view_entry_title":         "Eintrag ansehen",
     "lbl_id":                   "ID",
     "lbl_entry_title_field":    "Titel",
@@ -212,7 +212,7 @@ STRINGS = {
     "lbl_comments_plain":       "Kommentare:",
     "lbl_none":                 "-",
 
-    # ── AddUserDialog ─────────────────────────────────────────────────────────
+    # -- AddUserDialog ---------------------------------------------------------
     "add_user_title":           "Benutzer hinzufügen",
     "lbl_generate_keypair":     "Schlüsselpaar generieren",
     "lbl_external_key":         "Eigenen Public Key angeben (PEM):",
@@ -221,7 +221,7 @@ STRINGS = {
     "err_pubkey_empty":         "Bitte einen Public Key (PEM) eingeben.",
     "err_pubkey_invalid":       "Ungültiger Public Key. Bitte PEM-Format verwenden.",
 
-    # ── UserManagementDialog ──────────────────────────────────────────────────
+    # -- UserManagementDialog --------------------------------------------------
     "user_mgmt_title":          "Benutzerverwaltung",
     "btn_add_user_toolbar":     "+ Benutzer hinzufügen",
     "btn_copy_onboarding":      "Onboarding kopieren",
@@ -249,7 +249,7 @@ STRINGS = {
     "key_saved_body":           "Schlüssel gespeichert:\n{path}\n\nDiesen sicher an den Benutzer übertragen.",
     "err_save_failed":          "Speichern fehlgeschlagen: {exc}",
 
-    # ── MainWindow ────────────────────────────────────────────────────────────
+    # -- MainWindow ------------------------------------------------------------
     "btn_add_toolbar":          "Hinzufügen",
     "btn_delete_toolbar":       "Löschen",
     "btn_settings_toolbar":     "Sync-Zugang",
@@ -277,7 +277,7 @@ STRINGS = {
     "status_deleted_singular":  "{count} Eintrag gelöscht.",
     "status_deleted_plural":    "{count} Einträge gelöscht.",
     "status_not_found":         "Keine passenden Einträge gefunden.",
-    "status_sync_saved":        "Sync gespeichert — {url}",
+    "status_sync_saved":        "Sync gespeichert - {url}",
     "status_sync_disabled":     "Sync deaktiviert.",
     "status_syncing":           "Synchronisiere…",
     "status_sync_done":         "Sync abgeschlossen.",
@@ -296,12 +296,12 @@ STRINGS = {
     "fingerprint_rotated_hint": "Der Signatur-Fingerprint hat sich geändert. Gib diesen neuen Fingerprint an alle verbleibenden Nutzer über einen separaten vertrauenswürdigen Kanal weiter.\n\nBenutzer müssen ihn bestätigen, bevor sie wieder synchronisieren können.",
     "fingerprint_body":         "Diesen Fingerprint über einen separaten vertrauenswürdigen Kanal an neue Benutzer weitergeben.\n\nBenutzer müssen ihn vor dem ersten Kalender-Import vergleichen.\n\n{fingerprint}",
 
-    # ── LanguageDialog ────────────────────────────────────────────────────────
+    # -- LanguageDialog --------------------------------------------------------
     "lang_dialog_title":        "Sprache",
     "lang_dialog_hint":         "Wird beim nächsten Start angewendet.",
     "btn_language":             "Sprache",
 
-    # ── SettingsDialog ────────────────────────────────────────────────────────
+    # -- SettingsDialog --------------------------------------------------------
     "settings_title":           "App-Einstellungen",
     "settings_lang_section":    "Sprache",
     "settings_lang_hint":       "Wird beim nächsten Start angewendet.",
@@ -315,7 +315,7 @@ STRINGS = {
     "settings_channel_custom":  "Eigene URL:",
     "btn_app_settings":         "⚙",
 
-    # ── UpdateCheckDialog ─────────────────────────────────────────────────────
+    # -- UpdateCheckDialog -----------------------------------------------------
     "update_checking":          "Auf Updates prüfen…",
     "update_up_to_date":        "Bereits aktuell.",
     "update_available":         "Update {version} verfügbar.",

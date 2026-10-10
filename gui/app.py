@@ -2,10 +2,10 @@
 """CalendarApp: the decrypted, verified calendar of the logged-in user.
 
 The logic lives in core/ and is combined here:
-  core.state        — load, verify, snapshot and save the local file
-  core.sync_engine  — upload and download without overwriting others
-  core.entries      — entry queries and changes
-  core.users        — users, roles, signing keys and sync config
+  core.state        - load, verify, snapshot and save the local file
+  core.sync_engine  - upload and download without overwriting others
+  core.entries      - entry queries and changes
+  core.users        - users, roles, signing keys and sync config
 """
 
 import threading
@@ -45,7 +45,7 @@ class CalendarApp(StateMixin, SyncMixin, EntriesMixin, UsersMixin):
         # Last state known to be on the server; pending ops build on top of it.
         self._base = self._snapshot()
 
-    # ── Properties ────────────────────────────────────────────────────────────
+    # -- Properties ------------------------------------------------------------
 
     @property
     def role(self) -> str:

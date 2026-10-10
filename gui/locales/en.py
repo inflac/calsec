@@ -23,7 +23,7 @@ FREQ_UNITS = {
 POS_OPTS = [("1st", "1"), ("2nd", "2"), ("3rd", "3"), ("4th", "4"), ("Last", "-1")]
 
 STRINGS = {
-    # ── Generic ───────────────────────────────────────────────────────────────
+    # -- Generic ---------------------------------------------------------------
     "btn_ok":                   "OK",
     "btn_yes":                  "Yes",
     "btn_no":                   "No",
@@ -33,7 +33,7 @@ STRINGS = {
     "btn_close":                "Close",
     "lbl_email":                "Identifier:",
     "lbl_webdav_url":           "WebDAV Folder URL:",
-    "lbl_webdav_url_hint":      "Folder URL — /calendar.json is appended automatically",
+    "lbl_webdav_url_hint":      "Folder URL - /calendar.json is appended automatically",
     "lbl_username":             "Username:",
     "lbl_app_password":         "App Password:",
     "lbl_fingerprint":          "Fingerprint:",
@@ -49,7 +49,7 @@ STRINGS = {
     "err_url_invalid_title":    "Invalid URL",
     "err_url_invalid_body":     "URL must start with http:// or https://.\n\nDid you mean: https://{url} ?",
 
-    # ── LoginFrame ────────────────────────────────────────────────────────────
+    # -- LoginFrame ------------------------------------------------------------
     "login_subtitle":           "Encrypted Calendar",
     "login_password":           "Password:",
     "btn_unlock":               "Unlock",
@@ -64,7 +64,7 @@ STRINGS = {
     "setup_done_body_pw":       "Key generated. Please unlock with your password.",
     "setup_done_fingerprint":   "Signing fingerprint:\n{fingerprint}\n\nShare this fingerprint with new users over a separate trusted channel.",
 
-    # ── FetchCalendarDialog ───────────────────────────────────────────────────
+    # -- FetchCalendarDialog ---------------------------------------------------
     "fetch_title":              "Download Calendar",
     "fetch_description":        "Local key found, but no calendar yet.\nEnter your Nextcloud credentials to download\nthe calendar once.",
     "btn_download":             "Download",
@@ -73,8 +73,8 @@ STRINGS = {
     "status_connecting":        "Connecting…",
     "err_no_sign_keys":         "Error: File contains no signing keys.",
     "err_signatures_missing":   "Error: Signatures missing in downloaded file.",
-    "err_user_sig_invalid":     "Error: User signature invalid — file tampered?",
-    "err_entry_sig_invalid":    "Error: Entry signature invalid — file tampered?",
+    "err_user_sig_invalid":     "Error: User signature invalid - file tampered?",
+    "err_entry_sig_invalid":    "Error: Entry signature invalid - file tampered?",
     "err_fingerprint_required": "Please enter the 64-hex signing fingerprint you received from the admin.",
     "err_fingerprint_mismatch": "Error: Signing fingerprint mismatch.\nReceived fingerprint:\n{fingerprint}",
     "trust_sign_keys_title":    "Confirm New Signing Keys",
@@ -82,13 +82,13 @@ STRINGS = {
     "err_key_not_registered":   "Error: No local key is registered in this calendar.\nPlease ask the admin to add your key.",
     "err_generic":              "Error: {exc}",
 
-    # ── ProvisionDialog ───────────────────────────────────────────────────────
-    "provision_title":          "Setup — Initial Configuration",
+    # -- ProvisionDialog -------------------------------------------------------
+    "provision_title":          "Setup - Initial Configuration",
     "provision_admin_label":    "Set up admin account:",
     "provision_webdav_hint":    "WebDAV Sync (leave URL empty to skip):",
     "btn_generate_key":         "Generate Key",
 
-    # ── AddEntryDialog ────────────────────────────────────────────────────────
+    # -- AddEntryDialog --------------------------------------------------------
     "add_entry_title":          "Add Entry",
     "edit_entry_title":         "Edit Entry",
     "lbl_title":                "Title:",
@@ -104,16 +104,16 @@ STRINGS = {
     "err_date_invalid":         "Invalid date. Use DD.MM.YYYY.",
     "err_time_invalid":         "Invalid time. Use HH:MM, all-day, or unknown.",
 
-    # ── SyncConfigDialog ──────────────────────────────────────────────────────
+    # -- SyncConfigDialog ------------------------------------------------------
     "sync_title":               "Sync Settings",
     "sync_hint":                "Leave WebDAV URL empty to disable sync.",
 
-    # ── Sync status / error messages ──────────────────────────────────────────
+    # -- Sync status / error messages ------------------------------------------
     "sync_not_configured":      "Sync not configured.",
     "sync_err_no_requests":     "Sync error: 'requests' library not installed.",
     "sync_file_not_found":      "Sync: {file} not found, skipping.",
     "sync_err_read_failed":     "Sync error: Failed to read calendar file.",
-    "sync_err_invalid_url":     "Sync error: Invalid URL '{url}' — URL must start with http:// or https://.",
+    "sync_err_invalid_url":     "Sync error: Invalid URL '{url}' - URL must start with http:// or https://.",
     "sync_err_ssl":             "Sync error: SSL certificate verification failed.",
     "sync_err_connection":      "Sync error: Could not connect to server.",
     "sync_err_timeout":         "Sync error: Connection timed out.",
@@ -144,7 +144,7 @@ STRINGS = {
     "sync_pending_dropped":      "{msg} Your changes that were not uploaded yet were discarded because the signing keys changed. Please log in again and repeat them.",
     "sync_err_load_failed":      "Sync error: Could not load the new state from the server. Please log in again.",
 
-    # ── CalendarApp errors ────────────────────────────────────────────────────
+    # -- CalendarApp errors ----------------------------------------------------
     "app_err_sync_config_unavailable": "Sync configuration is not available.",
     "app_err_missing_sign_keys": "Calendar file is missing signing keys.",
     "app_err_missing_signatures": "Calendar file is missing signatures.",
@@ -171,7 +171,7 @@ STRINGS = {
     "app_err_rotation_identifier": "Failed to re-encrypt identifier for user {user}.",
     "app_err_rotation_sync_config": "Failed to re-encrypt sync configuration during key rotation.",
 
-    # ── RecurrenceDialog ──────────────────────────────────────────────────────
+    # -- RecurrenceDialog ------------------------------------------------------
     "recurrence_title":         "Recurrence",
     "lbl_frequency":            "Frequency:",
     "lbl_every":                "Every:",
@@ -191,7 +191,7 @@ STRINGS = {
     "err_end_date_invalid":     "Invalid end date. Format: DD.MM.YYYY",
     "err_count_invalid":        "Count must be ≥ 1.",
 
-    # ── Recurrence summary ────────────────────────────────────────────────────
+    # -- Recurrence summary ----------------------------------------------------
     "rec_none":                 "-",
     "rec_daily":                "Daily",
     "rec_every_n_days":         "Every {n} days",
@@ -203,7 +203,7 @@ STRINGS = {
     "rec_every_n_years":        "Every {n} years",
     "rec_on_day":               "on day {day}",
 
-    # ── ViewEntryDialog ───────────────────────────────────────────────────────
+    # -- ViewEntryDialog -------------------------------------------------------
     "view_entry_title":         "View Entry",
     "lbl_id":                   "ID",
     "lbl_entry_title_field":    "Title",
@@ -212,7 +212,7 @@ STRINGS = {
     "lbl_comments_plain":       "Comments:",
     "lbl_none":                 "none",
 
-    # ── AddUserDialog ─────────────────────────────────────────────────────────
+    # -- AddUserDialog ---------------------------------------------------------
     "add_user_title":           "Add User",
     "lbl_generate_keypair":     "Generate key pair",
     "lbl_external_key":         "Provide own public key (PEM):",
@@ -221,7 +221,7 @@ STRINGS = {
     "err_pubkey_empty":         "Please enter a public key (PEM).",
     "err_pubkey_invalid":       "Invalid public key. Please use PEM format.",
 
-    # ── UserManagementDialog ──────────────────────────────────────────────────
+    # -- UserManagementDialog --------------------------------------------------
     "user_mgmt_title":          "User Management",
     "btn_add_user_toolbar":     "+ Add User",
     "btn_copy_onboarding":      "Copy Onboarding",
@@ -249,7 +249,7 @@ STRINGS = {
     "key_saved_body":           "Key saved:\n{path}\n\nTransfer this securely to the user.",
     "err_save_failed":          "Save failed: {exc}",
 
-    # ── MainWindow ────────────────────────────────────────────────────────────
+    # -- MainWindow ------------------------------------------------------------
     "btn_add_toolbar":          "Add",
     "btn_delete_toolbar":       "Delete",
     "btn_settings_toolbar":     "Sync Access",
@@ -277,7 +277,7 @@ STRINGS = {
     "status_deleted_singular":  "{count} entry deleted.",
     "status_deleted_plural":    "{count} entries deleted.",
     "status_not_found":         "No matching entries found.",
-    "status_sync_saved":        "Sync saved — {url}",
+    "status_sync_saved":        "Sync saved - {url}",
     "status_sync_disabled":     "Sync disabled.",
     "status_syncing":           "Syncing…",
     "status_sync_done":         "Sync complete.",
@@ -296,12 +296,12 @@ STRINGS = {
     "fingerprint_body":         "Share this fingerprint with new users over a separate trusted channel.\n\nUsers must compare it before the first calendar import.\n\n{fingerprint}",
     "fingerprint_copy_hint":    "Share this fingerprint with new users over a separate trusted channel.\n\nUsers must compare it before the first calendar import.",
 
-    # ── LanguageDialog ────────────────────────────────────────────────────────
+    # -- LanguageDialog --------------------------------------------------------
     "lang_dialog_title":        "Language",
     "lang_dialog_hint":         "Will be applied on next start.",
     "btn_language":             "Language",
 
-    # ── SettingsDialog ────────────────────────────────────────────────────────
+    # -- SettingsDialog --------------------------------------------------------
     "settings_title":           "App Settings",
     "settings_lang_section":    "Language",
     "settings_lang_hint":       "Will be applied on next start.",
@@ -315,7 +315,7 @@ STRINGS = {
     "settings_channel_custom":  "Custom URL:",
     "btn_app_settings":         "⚙",
 
-    # ── UpdateCheckDialog ─────────────────────────────────────────────────────
+    # -- UpdateCheckDialog -----------------------------------------------------
     "update_checking":          "Checking for updates…",
     "update_up_to_date":        "Already up to date.",
     "update_available":         "Update {version} available.",

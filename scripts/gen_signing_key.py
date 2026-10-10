@@ -27,11 +27,11 @@ pub_pem = key.public_key().public_bytes(
 ).decode()
 
 print("=" * 60)
-print("PRIVATE KEY — add as GitHub secret: RELEASE_SIGNING_KEY")
+print("PRIVATE KEY - add as GitHub secret: RELEASE_SIGNING_KEY")
 print("=" * 60)
 print(priv_pem)
 
 print("=" * 60)
-print("PUBLIC KEY — paste into gui/updater.py as _RELEASE_PUBLIC_KEY_PEM")
+print("PUBLIC KEY - paste into gui/updater.py as _RELEASE_PUBLIC_KEY_PEM")
 print("=" * 60)
 print(pub_pem)

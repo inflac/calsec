@@ -56,7 +56,7 @@ def _fake_get(status=200, body=None):
     )
 
 
-# ── _calendar_url ─────────────────────────────────────────────────────────────
+# -- _calendar_url -------------------------------------------------------------
 
 def test_calendar_url_appends_filename():
     assert sync_module._calendar_url(_make_config("https://cloud.example.com/dav/folder")) \
@@ -68,7 +68,7 @@ def test_calendar_url_strips_trailing_slash():
         == "https://cloud.example.com/dav/folder/calendar.json"
 
 
-# ── sync_push ─────────────────────────────────────────────────────────────────
+# -- sync_push -----------------------------------------------------------------
 
 def test_push_none_config_returns_not_configured():
     assert sync_module.sync_push(None) == (False, i18n._("sync_not_configured"))
@@ -159,7 +159,7 @@ def test_push_missing_schema(monkeypatch, calendar_file):
     assert sync_module.sync_push(_make_config()) == (False, i18n._("sync_err_invalid_url").format(url=url))
 
 
-# ── sync_pull ─────────────────────────────────────────────────────────────────
+# -- sync_pull -----------------------------------------------------------------
 
 def test_pull_none_config_returns_none():
     data, _ = sync_module.sync_pull(None)
@@ -259,7 +259,7 @@ def test_pull_missing_schema(monkeypatch):
     assert msg == i18n._("sync_err_invalid_url").format(url=url)
 
 
-# ── fetch / conditional push ──────────────────────────────────────────────────
+# -- fetch / conditional push --------------------------------------------------
 
 def test_fetch_returns_etag(monkeypatch):
     class FakeResponse:

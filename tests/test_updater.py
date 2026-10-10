@@ -3,7 +3,7 @@ import sys
 import gui.updater as updater
 import pytest
 
-# ── is_frozen ─────────────────────────────────────────────────────────────────
+# -- is_frozen -----------------------------------------------------------------
 
 def test_is_frozen_false_in_tests():
     assert updater.is_frozen() is False
@@ -14,7 +14,7 @@ def test_is_frozen_true_when_meipass_set(monkeypatch):
     assert updater.is_frozen() is True
 
 
-# ── _version_tuple ────────────────────────────────────────────────────────────
+# -- _version_tuple ------------------------------------------------------------
 
 def test_version_tuple_basic():
     assert updater._version_tuple("1.2.3") == (1, 2, 3)
@@ -36,7 +36,7 @@ def test_version_tuple_ordering():
     assert updater._version_tuple("1.10.0") > updater._version_tuple("1.9.0")
 
 
-# ── current_version ───────────────────────────────────────────────────────────
+# -- current_version -----------------------------------------------------------
 
 def test_current_version_returns_string():
     assert isinstance(updater.current_version(), str)
@@ -47,7 +47,7 @@ def test_current_version_fallback_when_no_module(monkeypatch):
     assert updater.current_version() == "0.0.0"
 
 
-# ── _asset_name ───────────────────────────────────────────────────────────────
+# -- _asset_name ---------------------------------------------------------------
 
 def test_asset_name_linux(monkeypatch):
     monkeypatch.setattr(sys, "platform", "linux")
@@ -59,7 +59,7 @@ def test_asset_name_non_linux_returns_empty(monkeypatch):
     assert updater._asset_name() == ""
 
 
-# ── _channel_url ──────────────────────────────────────────────────────────────
+# -- _channel_url --------------------------------------------------------------
 
 def test_channel_url_returns_official_by_default(monkeypatch):
     import settings

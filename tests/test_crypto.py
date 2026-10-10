@@ -10,7 +10,7 @@ def _keypair():
     return kpriv, kpriv.public_key()
 
 
-# ── b64 helpers ───────────────────────────────────────────────────────────────
+# -- b64 helpers ---------------------------------------------------------------
 
 def test_b64_roundtrip():
     data = b"hello world"
@@ -22,7 +22,7 @@ def test_b64d_roundtrip():
     assert crypto.b64d(crypto.b64(raw)) == raw
 
 
-# ── derive_key ────────────────────────────────────────────────────────────────
+# -- derive_key ----------------------------------------------------------------
 
 def test_derive_key_deterministic():
     shared = b"shared_secret"
@@ -39,7 +39,7 @@ def test_derive_key_differs_on_different_inputs():
     assert crypto.derive_key(b"a", salt) != crypto.derive_key(b"b", salt)
 
 
-# ── sym_encrypt / sym_decrypt ─────────────────────────────────────────────────
+# -- sym_encrypt / sym_decrypt -------------------------------------------------
 
 def test_sym_roundtrip():
     key  = os.urandom(32)
@@ -76,7 +76,7 @@ def test_sym_encrypt_nonce_is_random():
     assert e1["iv"] != e2["iv"]
 
 
-# ── ecies_encrypt / ecies_decrypt ─────────────────────────────────────────────
+# -- ecies_encrypt / ecies_decrypt ---------------------------------------------
 
 def test_ecies_roundtrip():
     kpriv, kpub = _keypair()
@@ -100,7 +100,7 @@ def test_ecies_ciphertext_randomized():
     assert enc1["ct"] != enc2["ct"]
 
 
-# ── encrypt_entry / decrypt_entry ─────────────────────────────────────────────
+# -- encrypt_entry / decrypt_entry ---------------------------------------------
 
 def test_encrypt_entry_roundtrip():
     sym_key = os.urandom(32)
@@ -122,7 +122,7 @@ def test_encrypt_entry_aad_prevents_substitution():
     e2 = {"id": "id-2", "title": "B"}
     enc1 = crypto.encrypt_entry(e1, sym_key)
     enc2 = crypto.encrypt_entry(e2, sym_key)
-    # Swap the data_enc between entries — decryption must fail (AAD mismatch)
+    # Swap the data_enc between entries - decryption must fail (AAD mismatch)
     tampered = dict(enc1)
     tampered["data_enc"] = enc2["data_enc"]
     with pytest.raises(Exception):
@@ -135,7 +135,7 @@ def test_decrypt_entry_wrong_key_raises():
         crypto.decrypt_entry(enc, os.urandom(32))
 
 
-# ── split signatures: sign_users / verify_users ───────────────────────────────
+# -- split signatures: sign_users / verify_users -------------------------------
 
 def test_sign_and_verify_users():
     kpriv, kpub = _keypair()
@@ -163,7 +163,7 @@ def test_verify_users_fails_with_wrong_key():
     assert crypto.verify_users(1, sign_keys, {}, None, sig, kpub2) is False
 
 
-# ── split signatures: sign_entries / verify_entries ──────────────────────────
+# -- split signatures: sign_entries / verify_entries --------------------------
 
 def test_sign_and_verify_entries():
     kpriv, kpub = _keypair()
@@ -186,7 +186,7 @@ def test_verify_entries_fails_with_wrong_key():
     assert crypto.verify_entries(1, [], sig, kpub2) is False
 
 
-# ── pem_to_public_key ─────────────────────────────────────────────────────────
+# -- pem_to_public_key ---------------------------------------------------------
 
 def test_pem_to_public_key_roundtrip():
     from cryptography.hazmat.primitives import serialization

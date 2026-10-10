@@ -39,7 +39,7 @@ def make_window(tk_root, no_settings_file):
     return _make
 
 
-# ── list / month toggle ───────────────────────────────────────────────────────
+# -- list / month toggle -------------------------------------------------------
 
 def test_starts_in_saved_view(make_window, no_settings_file):
     no_settings_file._current["view_mode"] = "month"
@@ -91,7 +91,7 @@ def test_view_toggle_sits_below_settings_and_theme(make_window):
     assert int(toggle["columnspan"]) == 2
 
 
-# ── double-click per role ─────────────────────────────────────────────────────
+# -- double-click per role -----------------------------------------------------
 
 @pytest.mark.parametrize("can_edit, expected", [(True, "edit"), (False, "view")])
 def test_double_click_edits_or_views_by_role(make_window, monkeypatch, can_edit, expected):
@@ -119,7 +119,7 @@ def test_viewer_has_no_edit_buttons(make_window):
     assert "Add" not in texts and "Delete" not in texts
 
 
-# ── window size ───────────────────────────────────────────────────────────────
+# -- window size ---------------------------------------------------------------
 
 def test_status_bar_is_packed_before_content(make_window):
     """pack takes space from the last packed widget first: the bar must come earlier."""
@@ -154,7 +154,7 @@ def test_min_size_is_restored_when_window_is_closed(make_window, tk_root):
     assert tk_root.minsize() == (680, 440)
 
 
-# ── theme switch in main.Application ──────────────────────────────────────────
+# -- theme switch in main.Application ------------------------------------------
 
 def test_theme_switch_keeps_position_and_month(tk_root, no_settings_file, monkeypatch):
     import tkinter as tk
@@ -198,7 +198,7 @@ def test_theme_switch_keeps_position_and_month(tk_root, no_settings_file, monkey
         app.destroy()
 
 
-# ── sync status ───────────────────────────────────────────────────────────────
+# -- sync status ---------------------------------------------------------------
 
 @pytest.mark.parametrize("is_error", [True, False])
 def test_sync_status_color_follows_error_flag(make_window, tk_root, is_error):
@@ -225,7 +225,7 @@ def test_sync_indicator_shows_only_while_syncing(make_window, tk_root):
     assert not mw._sync_indicator.winfo_ismapped()
 
 
-# ── closing while syncing ─────────────────────────────────────────────────────
+# -- closing while syncing -----------------------------------------------------
 
 def _bare_application():
     """main.Application as its own Tk root, without its startup flow."""

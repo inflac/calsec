@@ -1,14 +1,14 @@
-# CalSec — Technical Whitepaper
+# CalSec - Technical Whitepaper
 
 ## Motivation
 
-Staying anonymous nowadays becomes more challenging from day to day. One of the most established methods for journalists, activists and people who want to hide in an anonymity set is to use [Tails](https://tails.net). However with Tails and the need to undergo surveillance and censorship, you have to face limitations — including not trusting most third-party services without [E2E encryption](https://en.wikipedia.org/wiki/End-to-end_encryption).
+Staying anonymous nowadays becomes more challenging from day to day. One of the most established methods for journalists, activists and people who want to hide in an anonymity set is to use [Tails](https://tails.net). However with Tails and the need to undergo surveillance and censorship, you have to face limitations - including not trusting most third-party services without [E2E encryption](https://en.wikipedia.org/wiki/End-to-end_encryption).
 
 When dealing with others you might face the need to share a calendar so everyone stays informed about upcoming events and appointments. Using services without E2E is not an option. Trusting companies which claim security and privacy is an advance of trust that may not be acceptable. So two options remain:
 
 The most obvious is to host your own hidden service with a calendar tool. Besides the many advantages, this requires securing your hardware, exposes your home address as the origin of your hidden service, and may be overkill for a simple calendar.
 
-The second option — used by CalSec — is described below.
+The second option - used by CalSec - is described below.
 
 ## Concept
 
@@ -20,16 +20,14 @@ While this method does not eliminate all risks, it significantly reduces them by
 
 ### Concurrent Changes
 
-Several editors and admins may change the calendar at the same time. CalSec never overwrites a remote file it has not seen:
+Several editors and admins may change the calendar at the same time. CalSec does not overwrite a remote file it has not seen:
 
 1. Every change is applied and saved locally first and kept as a re-applicable operation until it has been uploaded.
 2. Before uploading, the client downloads the remote file together with its ETag.
 3. If the remote file differs from the last state this client synced, someone else changed it in the meantime. The client verifies the remote file, loads it, and re-applies its own pending operations on top.
 4. The upload uses `If-Match` with the ETag from step 2 (`If-None-Match: *` if no remote file exists yet). If the file changed between download and upload, the server rejects the upload with HTTP 412 and the client starts again at step 2.
 
-Operations that no longer apply, such as editing an entry someone else deleted, are dropped and reported to the user. If the remote file uses different signing keys, the client does not merge automatically and asks the user to sync manually, which includes the fingerprint confirmation.
-
-Pending operations live only in memory. A change that could not be uploaded before the application is closed stays in the local file but is not merged with later remote changes.
+Operations that no longer apply to the newer state are dropped. A remote file signed with different signing keys is never merged automatically. Accepting new keys requires the fingerprint confirmation described below. The guarantee in step 4 depends on the server sending ETags. Without them, the client still merges before uploading but uploads unconditionally.
 
 ## Encryption Scheme
 
@@ -56,13 +54,13 @@ Each user receives a copy of `sym_key_cal` encrypted to their public key via **E
 Each calendar entry is encrypted with a **random per-entry AES-256 key**:
 
 ```text
-entry_key  ──AES-256-GCM──▶  entry_key_enc   (wrapped with sym_key_cal)
-entry_data ──AES-256-GCM──▶  data_enc        (encrypted with entry_key, entry ID as AAD)
+entry_key  --AES-256-GCM--▶  entry_key_enc   (wrapped with sym_key_cal)
+entry_data --AES-256-GCM--▶  data_enc        (encrypted with entry_key, entry ID as AAD)
 ```
 
 Using the entry ID as Additional Authenticated Data (AAD) prevents an attacker from substituting one encrypted entry for another.
 
-### Integrity — Split Signatures
+### Integrity - Split Signatures
 
 `calendar.json` contains two independent ECDSA-SHA256 signatures:
 
@@ -91,7 +89,7 @@ After the first trusted import, later syncs continue to verify signatures agains
 
 ### Fingerprint Concept
 
-The fingerprint is a cryptographic digest of the calendar's signing public keys. It serves as a short, human-verifiable representation of the trust anchor — if two parties compute the same fingerprint over the same `sign_keys` block, they know they are working with the same signing keys.
+The fingerprint is a cryptographic digest of the calendar's signing public keys. It serves as a short, human-verifiable representation of the trust anchor - if two parties compute the same fingerprint over the same `sign_keys` block, they know they are working with the same signing keys.
 
 #### Computation
 
@@ -99,7 +97,7 @@ The fingerprint is a cryptographic digest of the calendar's signing public keys.
 fingerprint = SHA-256(canonical_json({"sign_keys": sign_keys}))
 ```
 
-Canonical JSON is deterministic: keys are sorted and no extra whitespace is added. Any change to the signing keys — whether key rotation or tampering — produces a completely different fingerprint.
+Canonical JSON is deterministic: keys are sorted and no extra whitespace is added. Any change to the signing keys - whether key rotation or tampering - produces a completely different fingerprint.
 
 #### Purpose: Trust-on-First-Use (TOFU)
 
@@ -109,7 +107,7 @@ When a new user imports the calendar for the first time, CalSec has no prior kno
 2. The new user enters the expected fingerprint in the onboarding dialog before the first calendar download.
 3. CalSec downloads the file, computes the fingerprint from the received `sign_keys`, and only accepts the file if both values match *and* all signatures verify successfully.
 
-Without a matching fingerprint, the import is aborted — even if the signatures would technically verify against the received keys.
+Without a matching fingerprint, the import is aborted - even if the signatures would technically verify against the received keys.
 
 #### After First Import
 
@@ -133,30 +131,30 @@ Spaces are cosmetic only. Comparison strips whitespace and is case-insensitive. 
 
 Signing private keys are stored inside `calendar.json` encrypted to each eligible user's public key via ECIES:
 
-- `edit_sign_key_enc` — present for admins and editors
-- `admin_sign_key_enc` — present for admins only
+- `edit_sign_key_enc` - present for admins and editors
+- `admin_sign_key_enc` - present for admins only
 
 ### File Structure
 
 ```text
 calendar.json
-├── version
-├── version_users
-├── version_entries
-├── sign_keys          (public signing keys — readable by all)
-├── users
-│   └── <hash>
-│       ├── kpub_enc           (user's EC public key)
-│       ├── sym_key_cal_enc    (ECIES: sym_key_cal → user)
-│       ├── identifier_enc     (AES-256-GCM with sym_key_cal)
-│       ├── role
-│       ├── edit_sign_key_enc  (ECIES, editors + admins)
-│       └── admin_sign_key_enc (ECIES, admins only)
-├── entries[]
-│   └── { id, entry_key_enc, data_enc }
-├── sync_config        (AES-256-GCM with sym_key_cal, readable by all users)
-├── sig_users          (ECDSA over version_users + sign_keys + users + sync_config)
-└── sig_entries        (ECDSA over version_entries + entries)
+|-- version
+|-- version_users
+|-- version_entries
+|-- sign_keys          (public signing keys - readable by all)
+|-- users
+|   |-- <hash>
+|       |-- kpub_enc           (user's EC public key)
+|       |-- sym_key_cal_enc    (ECIES: sym_key_cal → user)
+|       |-- identifier_enc     (AES-256-GCM with sym_key_cal)
+|       |-- role
+|       |-- edit_sign_key_enc  (ECIES, editors + admins)
+|       `-- admin_sign_key_enc (ECIES, admins only)
+|-- entries[]
+|   |-- { id, entry_key_enc, data_enc }
+|-- sync_config        (AES-256-GCM with sym_key_cal, readable by all users)
+|-- sig_users          (ECDSA over version_users + sign_keys + users + sync_config)
+|-- sig_entries        (ECDSA over version_entries + entries)
 ```
 
 ## Release Integrity
@@ -192,15 +190,16 @@ EOF
 
 ## Limitations & Risks
 
-- **Sync provider trust** — CalSec does not hide metadata from the WebDAV provider (file size, access times).
-- **Key storage** — Private keys are stored on the Tails persistent volume. Physical access to the device is a risk regardless of encryption.
-- **No forward secrecy for entries** — If a user's private key is compromised, past entries encrypted to that key can be decrypted. Key rotation on user removal mitigates this for future entries only.
-- **Admin trust** — The admin holds `sym_key_cal` (decrypts all entries) and both signing private keys (can sign any change). A malicious or compromised admin can:
+- **Sync provider trust** - CalSec does not hide metadata from the WebDAV provider (file size, access times).
+- **Unsynced changes** - Pending operations live only in memory. A change that was saved locally but not uploaded before the application closed is not uploaded after a restart and is lost on the next sync.
+- **Key storage** - Private keys are stored on the Tails persistent volume. Physical access to the device is a risk regardless of encryption.
+- **No forward secrecy for entries** - If a user's private key is compromised, past entries encrypted to that key can be decrypted. Key rotation on user removal mitigates this for future entries only.
+- **Admin trust** - The admin holds `sym_key_cal` (decrypts all entries) and both signing private keys (can sign any change). A malicious or compromised admin can:
   - Read all calendar entries in plaintext
   - Add, modify, or delete entries and re-sign them (forged entries will pass signature verification)
   - Manipulate metadata such as timestamps
   - Revoke or demote any other user
   - Modify the sync configuration
   
-  The sync URL is enforced to always point to `calendar.json` in the configured folder, preventing an admin from redirecting clients to arbitrary remote resources. Non-admin users have no cryptographic way to detect admin-authored manipulation of the users section or entries — they rely entirely on trusting the admin.
-- **First-import verification** — New users must compare the signing fingerprint with the value received from the admin over a separate trusted channel. If that channel is compromised, the first import can still be subverted.
+  The sync URL is enforced to always point to `calendar.json` in the configured folder, preventing an admin from redirecting clients to arbitrary remote resources. Non-admin users have no cryptographic way to detect admin-authored manipulation of the users section or entries - they rely entirely on trusting the admin.
+- **First-import verification** - New users must compare the signing fingerprint with the value received from the admin over a separate trusted channel. If that channel is compromised, the first import can still be subverted.

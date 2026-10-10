@@ -47,7 +47,7 @@ class MainWindow(ttk.Frame):
         self._initial_refresh()
 
     def _build_ui(self):
-        # ── Combined top section (2-row grid) ─────────────────────────────────
+        # -- Combined top section (2-row grid) ---------------------------------
         # Row 0: toolbar buttons | right-side controls
         # Row 1: [← month →] [Heute] aligned under Löschen | fingerprint
         top = ttk.Frame(self)
@@ -55,7 +55,7 @@ class MainWindow(ttk.Frame):
         top.columnconfigure(99, weight=1)
         self._top = top  # its width sets the window's minimum width
 
-        # Right-side controls — spans both toolbar row and nav row
+        # Right-side controls - spans both toolbar row and nav row
         right = ttk.Frame(top)
         right.grid(row=0, column=99, rowspan=2, sticky="ne")
         self._top_right = right  # used by show_update_banner
@@ -75,7 +75,7 @@ class MainWindow(ttk.Frame):
         ttk.Label(right, textvariable=self._version_var,
                   foreground=theme.FG_DIM).grid(row=0, column=3, padx=8)
 
-        # View toggle — as wide as settings + theme, directly below them.
+        # View toggle - as wide as settings + theme, directly below them.
         # Like the theme button, it shows the view a click switches to.
         self._view_btn = ttk.Button(right, style="Tight.TButton",
                                     command=self._toggle_view)
@@ -92,7 +92,7 @@ class MainWindow(ttk.Frame):
         else:
             self._update_btn = None
 
-        # Toolbar buttons (row 0, left side) — track column index
+        # Toolbar buttons (row 0, left side) - track column index
         col = 0
         if self._app.can_edit:
             ttk.Button(top, text=i18n._("btn_add_toolbar"),
@@ -141,7 +141,7 @@ class MainWindow(ttk.Frame):
                    command=self._goto_today).grid(
             row=1, column=2, padx=(0, 2), pady=(0, 4), sticky="ew")
 
-        # Fingerprint label (nav row, far right — same styling as version label above)
+        # Fingerprint label (nav row, far right - same styling as version label above)
         if self._app.is_admin:
             fp_label = tk.Label(
                 right, text="FP",
@@ -152,7 +152,7 @@ class MainWindow(ttk.Frame):
             fp_label.grid(row=1, column=3, padx=8, pady=(0, 4))
             fp_label.bind("<Button-1>", lambda _: self._show_fingerprint())
 
-        # ── Content: list or month grid (same interface, one shown at a time) ──
+        # -- Content: list or month grid (same interface, one shown at a time) --
         content = ttk.Frame(self)
         content.pack(fill="both", expand=True, padx=6, pady=6)
 
@@ -168,7 +168,7 @@ class MainWindow(ttk.Frame):
                                    height=self._list_view.winfo_reqheight())
         self._views = {"list": self._list_view, "month": self._month_view}
 
-        # ── Bottom bar ────────────────────────────────────────────────────────
+        # -- Bottom bar --------------------------------------------------------
         bottom_frame = ttk.Frame(self)
         # Pack before the content: when the window shrinks, pack takes space
         # from the widgets packed last, so the content shrinks, not this bar.
@@ -208,7 +208,7 @@ class MainWindow(ttk.Frame):
         self.bind("<Destroy>", self._stop_sync_poll, add="+")
         self.after_idle(self._fit_min_width)
 
-    # ── Sync indicator ────────────────────────────────────────────────────────
+    # -- Sync indicator --------------------------------------------------------
 
     _SYNC_SPINNER = "◐◓◑◒"
 
@@ -260,7 +260,7 @@ class MainWindow(ttk.Frame):
     def _toggle_view(self):
         self._set_view("list" if self._view_mode == "month" else "month")
 
-    # ── Month navigation ──────────────────────────────────────────────────────
+    # -- Month navigation ------------------------------------------------------
 
     def _initial_refresh(self):
         """Refresh; if current month is empty, auto-jump to the nearest future month
@@ -307,7 +307,7 @@ class MainWindow(ttk.Frame):
         self._view_year, self._view_month = dlg.result.year, dlg.result.month
         self.refresh()
 
-    # ── Data / display ────────────────────────────────────────────────────────
+    # -- Data / display --------------------------------------------------------
 
     def refresh(self):
         self._month_var.set(
@@ -332,13 +332,13 @@ class MainWindow(ttk.Frame):
         self._status_var.set(f"  {msg}")
         self._status_label.configure(fg=theme.RED if error else theme.FG)
 
-    # ── Selection helpers ─────────────────────────────────────────────────────
+    # -- Selection helpers -----------------------------------------------------
 
     def _selected_base_ids(self) -> list[str]:
         """Return deduplicated base entry ids selected in the visible view."""
         return self._views[self._view_mode].selected_base_ids()
 
-    # ── CRUD actions ──────────────────────────────────────────────────────────
+    # -- CRUD actions ----------------------------------------------------------
 
     def _add(self, date_str: str | None = None):
         dlg = AddEntryDialog(self, initial_date=date_str)
