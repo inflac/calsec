@@ -135,6 +135,14 @@ STRINGS = {
     "sync_err_sign_keys_mismatch": "Sync error: Signing keys of the downloaded file do not match.",
     "sync_err_sign_keys_not_confirmed": "Sync error: New signing keys were not confirmed.",
     "sync_err_fingerprint_mismatch": "Sync error: Signing fingerprint mismatch.\nReceived fingerprint:\n{fingerprint}",
+    "sync_err_conflict":         "Sync error: The file on the server was changed in the meantime.",
+    "sync_err_conflict_unresolved": "Sync error: Others are changing the file right now. Your change is saved locally but not uploaded yet. Please sync again later.",
+    "sync_err_rebase_keys_changed": "Sync error: The signing keys on the server have changed. Your change has not been uploaded yet. Please sync manually.",
+    "sync_err_rebase_failed":    "Sync error: Could not load the new state from the server. Your change has not been uploaded yet. Please log in again and repeat it.",
+    "sync_merged":               "Synced. Concurrent changes by others were merged.",
+    "sync_ops_dropped":          "{msg} Own changes not applied because they no longer fit the server state: {count}.",
+    "sync_pending_dropped":      "{msg} Your changes that were not uploaded yet were discarded because the signing keys changed. Please log in again and repeat them.",
+    "sync_err_load_failed":      "Sync error: Could not load the new state from the server. Please log in again.",
 
     # ── CalendarApp errors ────────────────────────────────────────────────────
     "app_err_sync_config_unavailable": "Sync configuration is not available.",
@@ -156,6 +164,7 @@ STRINGS = {
     "app_err_only_admin_change_roles": "Only admin can change user roles.",
     "app_err_cannot_change_own_role": "Cannot change your own role.",
     "app_err_user_not_found":   "User not found.",
+    "app_err_entry_not_found":   "Entry not found.",
     "app_err_only_admin_remove_users": "Only admin can remove users.",
     "app_err_cannot_remove_self": "Cannot remove your own account.",
     "app_err_rotation_entry":   "Failed to decrypt entry {id} during key rotation.",

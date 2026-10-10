@@ -257,3 +257,58 @@ def test_pull_missing_schema(monkeypatch):
     data, msg = sync_module.sync_pull(_make_config())
     assert data is None
     assert msg == i18n._("sync_err_invalid_url").format(url=url)
+
+
+# ── fetch / conditional push ──────────────────────────────────────────────────
+
+def test_fetch_returns_etag(monkeypatch):
+    class FakeResponse:
+        status_code = 200
+        content = b'{"version": 1}'
+        text = '{"version": 1}'
+        headers = {"Content-Type": "application/json", "ETag": '"abc"'}
+    monkeypatch.setitem(sys.modules, "requests", types.SimpleNamespace(
+        get=lambda *a, **kw: FakeResponse(), exceptions=_exc_ns()))
+    result = sync_module.fetch(_make_config())
+    assert result.status == "ok"
+    assert result.data == {"version": 1}
+    assert result.etag == '"abc"'
+
+
+def test_fetch_missing_file(monkeypatch):
+    monkeypatch.setitem(sys.modules, "requests", _fake_get(404))
+    assert sync_module.fetch(_make_config()).status == "missing"
+
+
+def _recording_put(status):
+    calls = []
+
+    class FakeResponse:
+        status_code = status
+
+    def put(*a, **kw):
+        calls.append(kw)
+        return FakeResponse()
+    return types.SimpleNamespace(put=put, exceptions=_exc_ns()), calls
+
+
+def test_push_sends_if_match(monkeypatch):
+    fake, calls = _recording_put(204)
+    monkeypatch.setitem(sys.modules, "requests", fake)
+    result = sync_module.push(_make_config(), b"{}", if_match='"abc"')
+    assert result.status == "ok"
+    assert calls[0]["headers"]["If-Match"] == '"abc"'
+
+
+def test_push_create_only_sends_if_none_match(monkeypatch):
+    fake, calls = _recording_put(201)
+    monkeypatch.setitem(sys.modules, "requests", fake)
+    sync_module.push(_make_config(), b"{}", create_only=True)
+    assert calls[0]["headers"]["If-None-Match"] == "*"
+
+
+def test_push_precondition_failed_is_conflict(monkeypatch):
+    fake, _ = _recording_put(412)
+    monkeypatch.setitem(sys.modules, "requests", fake)
+    result = sync_module.push(_make_config(), b"{}", if_match='"old"')
+    assert result.status == "conflict"

@@ -18,6 +18,19 @@ The calendar data is stored in an encrypted file, which is then synchronized thr
 
 While this method does not eliminate all risks, it significantly reduces them by ensuring that the data remains encrypted and under our control at all times.
 
+### Concurrent Changes
+
+Several editors and admins may change the calendar at the same time. CalSec never overwrites a remote file it has not seen:
+
+1. Every change is applied and saved locally first and kept as a re-applicable operation until it has been uploaded.
+2. Before uploading, the client downloads the remote file together with its ETag.
+3. If the remote file differs from the last state this client synced, someone else changed it in the meantime. The client verifies the remote file, loads it, and re-applies its own pending operations on top.
+4. The upload uses `If-Match` with the ETag from step 2 (`If-None-Match: *` if no remote file exists yet). If the file changed between download and upload, the server rejects the upload with HTTP 412 and the client starts again at step 2.
+
+Operations that no longer apply, such as editing an entry someone else deleted, are dropped and reported to the user. If the remote file uses different signing keys, the client does not merge automatically and asks the user to sync manually, which includes the fingerprint confirmation.
+
+Pending operations live only in memory. A change that could not be uploaded before the application is closed stays in the local file but is not merged with later remote changes.
+
 ## Encryption Scheme
 
 CalSec uses a layered encryption model. All cryptographic operations use standard algorithms from the `cryptography` Python library.

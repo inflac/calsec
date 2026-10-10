@@ -257,3 +257,220 @@ def test_sync_pull_without_config_reports_info_not_error(provisioned):
     results = []
     cal.sync_pull(on_done=lambda msg, is_error: results.append((msg, is_error)))
     assert results == [(i18n._("sync_not_configured"), False)]
+
+
+# ── Concurrent changes ────────────────────────────────────────────────────────
+
+import json  # noqa: E402
+import threading  # noqa: E402
+import time  # noqa: E402
+
+import sync  # noqa: E402
+from crypto import decrypt_entry, encrypt_entry, sign_entries, sign_users  # noqa: E402
+
+SYNC_CONFIG = {"webdav_url": "https://dav.example.invalid/cal",
+               "auth_user": "u", "password": "p"}
+
+
+class FakeServer:
+    """In-memory WebDAV file with ETags and If-Match / If-None-Match checks."""
+
+    def __init__(self):
+        self.body = None
+        self.etag = None
+        self.puts = 0
+        self.before_put = None   # one-shot hook: someone else writes first
+        self.fail_next_push = False
+
+    def store(self, data: dict):
+        self.body = json.dumps(data, indent=2).encode()
+        self.puts += 1
+        self.etag = f'"v{self.puts}"'
+
+    def data(self) -> dict:
+        return json.loads(self.body)
+
+    def fetch(self, config):
+        if self.body is None:
+            return sync.FetchResult("missing", None, None, "missing")
+        return sync.FetchResult("ok", self.data(), self.etag, "pulled")
+
+    def push(self, config, body, if_match=None, create_only=False):
+        if self.fail_next_push:
+            self.fail_next_push = False
+            return sync.PushResult("error", "offline")
+        if self.before_put:
+            hook, self.before_put = self.before_put, None
+            hook()
+        if create_only and self.body is not None:
+            return sync.PushResult("conflict", "conflict")
+        if if_match is not None and if_match != self.etag:
+            return sync.PushResult("conflict", "conflict")
+        self.store(json.loads(body))
+        return sync.PushResult("ok", "pushed")
+
+
+def _wait(start):
+    """Run start(on_done) and wait for the background sync to report back."""
+    done = threading.Event()
+    result = {}
+
+    def on_done(msg, is_error):
+        result["msg"], result["is_error"] = msg, is_error
+        done.set()
+
+    start(on_done)
+    assert done.wait(10)
+    return result["msg"], result["is_error"]
+
+
+def _wait_idle(cal):
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        with cal._sync_lock:
+            if not cal._pending:
+                return
+        time.sleep(0.01)
+    raise AssertionError("sync did not finish")
+
+
+@pytest.fixture()
+def synced(provisioned, monkeypatch):
+    cal, h = provisioned
+    server = FakeServer()
+    monkeypatch.setattr(sync, "fetch", server.fetch)
+    monkeypatch.setattr(sync, "push", server.push)
+    msg, is_error = _wait(lambda cb: cal.update_sync_config(SYNC_CONFIG, on_sync_done=cb))
+    assert not is_error, msg
+    return cal, server
+
+
+def _titles(cal, data):
+    return sorted(decrypt_entry(e, cal._sym_key_cal)["title"] for e in data["entries"])
+
+
+def _other_edits_entries(cal, server, change):
+    """Another editor changes the entries on the server."""
+    data = server.data()
+    entries = change(data["entries"])
+    data["entries"] = entries
+    data["version_entries"] += 1
+    data["version"] = max(data["version_users"], data["version_entries"])
+    data["sig_entries"] = sign_entries(
+        data["version_entries"], entries, cal._kpriv_edit_sign)
+    server.store(data)
+
+
+def _other_adds(cal, server, title):
+    entry = {"id": f"other-{title}", "title": title, "date": "01.01.2026",
+             "time": "all-day", "timestamp": 0, "comments": []}
+    _other_edits_entries(
+        cal, server, lambda es: es + [encrypt_entry(entry, cal._sym_key_cal)])
+
+
+def test_change_without_concurrency_is_uploaded(synced):
+    cal, server = synced
+    msg, is_error = _wait(lambda cb: cal.add_entry(
+        "Local", "02.01.2026", "all-day", [], on_sync_done=cb))
+    assert not is_error
+    assert msg == "pushed"
+    assert _titles(cal, server.data()) == ["Local"]
+
+
+def test_remote_change_since_last_sync_is_merged(synced):
+    cal, server = synced
+    _other_adds(cal, server, "Remote")
+    msg, is_error = _wait(lambda cb: cal.add_entry(
+        "Local", "02.01.2026", "all-day", [], on_sync_done=cb))
+    assert not is_error
+    assert msg == i18n_text("sync_merged")
+    assert _titles(cal, server.data()) == ["Local", "Remote"]
+    assert sorted(e["title"] for e in cal.get_entries()) == ["Local", "Remote"]
+
+
+def test_change_between_download_and_upload_is_not_overwritten(synced):
+    cal, server = synced
+    server.before_put = lambda: _other_adds(cal, server, "Remote")
+    msg, is_error = _wait(lambda cb: cal.add_entry(
+        "Local", "02.01.2026", "all-day", [], on_sync_done=cb))
+    assert not is_error
+    assert _titles(cal, server.data()) == ["Local", "Remote"]
+
+
+def test_user_change_is_merged_with_remote_entry_change(synced):
+    cal, server = synced
+    _other_adds(cal, server, "Remote")
+    cal.add_user("new@example.com", None, b"pass12345", role="viewer")
+    _wait_idle(cal)
+    data = server.data()
+    assert storage.identifier_to_hash("new@example.com") in data["users"]
+    assert _titles(cal, data) == ["Remote"]
+
+
+def test_update_of_remotely_deleted_entry_is_reported(synced):
+    cal, server = synced
+    _wait(lambda cb: cal.add_entry("Doomed", "02.01.2026", "all-day", [], on_sync_done=cb))
+    entry_id = cal.get_entries()[0]["id"]
+    _other_edits_entries(cal, server, lambda es: [])
+
+    msg, is_error = _wait(lambda cb: cal.update_entry(
+        entry_id, "Edited", "02.01.2026", "all-day", [], on_sync_done=cb))
+    assert is_error
+    assert server.data()["entries"] == []
+    assert cal.get_entries() == []
+
+
+def test_remote_signing_key_change_keeps_change_pending(synced):
+    cal, server = synced
+    data = server.data()
+    new_edit = ec.generate_private_key(ec.SECP256R1())
+    data["sign_keys"]["edit"] = cal._public_signing_key_pem(new_edit)
+    data["version_users"] += 1
+    data["sig_users"] = sign_users(data["version_users"], data["sign_keys"],
+                                   data["users"], data["sync_config"],
+                                   cal._kpriv_admin_sign)
+    data["sig_entries"] = sign_entries(data["version_entries"], data["entries"], new_edit)
+    server.store(data)
+    remote_before = server.body
+
+    msg, is_error = _wait(lambda cb: cal.add_entry(
+        "Local", "02.01.2026", "all-day", [], on_sync_done=cb))
+    assert is_error
+    assert msg == i18n_text("sync_err_rebase_keys_changed")
+    assert server.body == remote_before
+    assert len(cal._pending) == 1
+
+
+def test_manual_sync_uploads_pending_change_after_failed_push(synced):
+    cal, server = synced
+    server.fail_next_push = True
+    msg, is_error = _wait(lambda cb: cal.add_entry(
+        "Local", "02.01.2026", "all-day", [], on_sync_done=cb))
+    assert is_error
+    _other_adds(cal, server, "Remote")
+
+    msg, is_error = _wait(lambda cb: cal.sync_pull(on_done=cb))
+    assert not is_error, msg
+    assert _titles(cal, server.data()) == ["Local", "Remote"]
+    assert cal._pending == []
+
+
+def test_gives_up_when_remote_keeps_changing(synced, monkeypatch):
+    cal, server = synced
+    original_push = server.push
+
+    def always_conflicting(*args, **kwargs):
+        _other_adds(cal, server, f"R{server.puts}")
+        return original_push(*args, **kwargs)
+
+    monkeypatch.setattr(sync, "push", always_conflicting)
+    msg, is_error = _wait(lambda cb: cal.add_entry(
+        "Local", "02.01.2026", "all-day", [], on_sync_done=cb))
+    assert is_error
+    assert msg == i18n_text("sync_err_conflict_unresolved")
+    assert len(cal._pending) == 1
+
+
+def i18n_text(key):
+    import i18n
+    return i18n._(key)

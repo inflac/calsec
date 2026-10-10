@@ -135,6 +135,14 @@ STRINGS = {
     "sync_err_sign_keys_mismatch": "Sync: Signierschlüssel der heruntergeladenen Datei stimmen nicht überein.",
     "sync_err_sign_keys_not_confirmed": "Sync: Neue Signierschlüssel nicht bestätigt.",
     "sync_err_fingerprint_mismatch": "Sync: Signatur-Fingerprint stimmt nicht überein.\nEmpfangener Fingerprint:\n{fingerprint}",
+    "sync_err_conflict":         "Sync: Die Datei auf dem Server wurde zwischenzeitlich geändert.",
+    "sync_err_conflict_unresolved": "Sync: Die Datei wird gerade von anderen geändert. Deine Änderung ist lokal gespeichert, aber noch nicht hochgeladen. Bitte später erneut synchronisieren.",
+    "sync_err_rebase_keys_changed": "Sync: Die Signierschlüssel auf dem Server haben sich geändert. Deine Änderung ist noch nicht hochgeladen. Bitte synchronisiere manuell.",
+    "sync_err_rebase_failed":    "Sync: Der neue Stand vom Server konnte nicht geladen werden. Deine Änderung ist noch nicht hochgeladen. Bitte melde dich neu an und wiederhole sie.",
+    "sync_merged":               "Synchronisiert. Gleichzeitige Änderungen anderer wurden übernommen.",
+    "sync_ops_dropped":          "{msg} Nicht übernommene eigene Änderungen, weil sie nicht mehr zum Stand auf dem Server passen: {count}.",
+    "sync_pending_dropped":      "{msg} Deine noch nicht hochgeladenen Änderungen wurden verworfen, weil sich die Signierschlüssel geändert haben. Bitte melde dich neu an und wiederhole sie.",
+    "sync_err_load_failed":      "Sync: Der neue Stand vom Server konnte nicht geladen werden. Bitte melde dich neu an.",
 
     # ── CalendarApp errors ────────────────────────────────────────────────────
     "app_err_sync_config_unavailable": "Sync-Konfiguration ist nicht verfügbar.",
@@ -156,6 +164,7 @@ STRINGS = {
     "app_err_only_admin_change_roles": "Nur Admins können Rollen ändern.",
     "app_err_cannot_change_own_role": "Die eigene Rolle kann nicht geändert werden.",
     "app_err_user_not_found":   "Benutzer nicht gefunden.",
+    "app_err_entry_not_found":   "Eintrag nicht gefunden.",
     "app_err_only_admin_remove_users": "Nur Admins können Benutzer entfernen.",
     "app_err_cannot_remove_self": "Das eigene Konto kann nicht entfernt werden.",
     "app_err_rotation_entry":   "Eintrag {id} konnte bei der Schlüsselrotation nicht entschlüsselt werden.",

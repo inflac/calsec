@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import calendar as _cal_mod
+import copy
 import json
 import os
 import threading
@@ -203,6 +204,9 @@ def _expand_recurrence(data: dict, year: int, month: int) -> list:
 
 class CalendarApp:
 
+    # How often an upload is retried when others keep changing the remote file.
+    _MAX_SYNC_CONFLICTS = 5
+
     def __init__(self, sym_key_cal: bytes,
                  kpriv_admin_sign=None,
                  kpriv_edit_sign=None,
@@ -215,8 +219,17 @@ class CalendarApp:
         self._is_admin         = role == "admin"
         self._user_hash        = user_hash
 
+        # _lock guards the in-memory and local file state. _sync_lock makes
+        # sure only one download/upload sequence talks to the server at a time.
+        self._lock      = threading.RLock()
+        self._sync_lock = threading.Lock()
+        # Local changes not yet on the server, as re-applicable operations.
+        self._pending: list = []
+
         self.buffer   = []
         self._reload()
+        # Last state known to be on the server; pending ops build on top of it.
+        self._base = self._snapshot()
 
     def _reload(self):
         raw = storage.load_file_raw()
@@ -257,12 +270,12 @@ class CalendarApp:
                 raise RuntimeError(
                     i18n._("app_err_sync_config_decrypt")) from exc
 
-        self.buffer = []
+        buffer = []
         failed_entries = []
         for enc in self._entries_enc:
             try:
                 dec = decrypt_entry(enc, self._sym_key_cal)
-                self.buffer.append({
+                buffer.append({
                     "id":        dec["id"],
                     "timestamp": dec["timestamp"],
                     "data":      dec,
@@ -279,7 +292,8 @@ class CalendarApp:
                 i18n._("app_err_decrypt_entries").format(
                     count=len(failed_entries), preview=preview)
             ) from first_error
-        self.buffer.sort(key=lambda x: x["timestamp"])
+        buffer.sort(key=lambda x: x["timestamp"])
+        self.buffer = buffer
 
     # ── Properties ────────────────────────────────────────────────────────────
 
@@ -353,66 +367,268 @@ class CalendarApp:
             for user_entry in self._users.values():
                 self._apply_signing_keys_for_role(user_entry)
 
-    # ── Internal save ─────────────────────────────────────────────────────────
+    # ── Local state ───────────────────────────────────────────────────────────
 
-    def _save_and_sync(self, changed: str = "entries", on_sync_done=None):
-        """Sign the changed section(s), save, reload, then push to Nextcloud.
+    def _snapshot(self) -> dict:
+        """Capture the signed file state plus the keys needed to read and sign it."""
+        return {
+            "version_users":    self.version_users,
+            "version_entries":  self.version_entries,
+            "sign_keys":        copy.deepcopy(self._sign_keys),
+            "users":            copy.deepcopy(self._users),
+            "entries":          list(self._entries_enc),
+            "sync_config":      self._sync_config_enc,
+            "sig_users":        self._sig_users,
+            "sig_entries":      self._sig_entries,
+            "sym_key_cal":      self._sym_key_cal,
+            "kpriv_admin_sign": self._kpriv_admin_sign,
+            "kpriv_edit_sign":  self._kpriv_edit_sign,
+        }
+
+    def _restore(self, snap: dict) -> None:
+        self.version_users     = snap["version_users"]
+        self.version_entries   = snap["version_entries"]
+        self.version           = max(self.version_users, self.version_entries)
+        self._sign_keys        = copy.deepcopy(snap["sign_keys"])
+        self._users            = copy.deepcopy(snap["users"])
+        self._entries_enc      = list(snap["entries"])
+        self._sync_config_enc  = snap["sync_config"]
+        self._sig_users        = snap["sig_users"]
+        self._sig_entries      = snap["sig_entries"]
+        self._sym_key_cal      = snap["sym_key_cal"]
+        self._kpriv_admin_sign = snap["kpriv_admin_sign"]
+        self._kpriv_edit_sign  = snap["kpriv_edit_sign"]
+
+    def _raw_state(self) -> dict:
+        return {
+            "version":         max(self.version_users, self.version_entries),
+            "version_users":   self.version_users,
+            "version_entries": self.version_entries,
+            "sign_keys":       self._sign_keys,
+            "users":           self._users,
+            "sync_config":     self._sync_config_enc,
+            "entries":         self._entries_enc,
+            "sig_users":       self._sig_users,
+            "sig_entries":     self._sig_entries,
+        }
+
+    def _write_local(self, changed: str) -> None:
+        """Sign the changed section(s), then save and reload the local file.
 
         changed: "entries" — re-signs entries only (requires kpriv_edit_sign)
                  "users"   — re-signs users+sync_config block (requires kpriv_admin_sign)
                  "both"    — re-signs both (requires both keys; used on key rotation)
         """
-        new_users_version = (
-            self.version_users + 1 if changed in ("users", "both")
-            else self.version_users
-        )
-        new_entries_version = (
-            self.version_entries + 1 if changed in ("entries", "both")
-            else self.version_entries
-        )
-        new_version = max(new_users_version, new_entries_version)
+        if changed in ("entries", "both") and self._kpriv_edit_sign is None:
+            raise RuntimeError(i18n._("app_err_only_editors_save"))
+        if changed in ("users", "both") and self._kpriv_admin_sign is None:
+            raise RuntimeError(i18n._("app_err_only_admins_save_users"))
 
         if changed in ("entries", "both"):
-            if self._kpriv_edit_sign is None:
-                raise RuntimeError(i18n._("app_err_only_editors_save"))
-            sig_entries = sign_entries(
-                new_entries_version, self._entries_enc, self._kpriv_edit_sign)
-        else:
-            sig_entries = self._sig_entries  # unchanged
-
+            self.version_entries += 1
+            self._sig_entries = sign_entries(
+                self.version_entries, self._entries_enc, self._kpriv_edit_sign)
         if changed in ("users", "both"):
-            if self._kpriv_admin_sign is None:
-                raise RuntimeError(i18n._("app_err_only_admins_save_users"))
-            sig_users = sign_users(
-                new_users_version, self._sign_keys, self._users, self._sync_config_enc,
-                self._kpriv_admin_sign)
-        else:
-            sig_users = self._sig_users  # unchanged
+            self.version_users += 1
+            self._sig_users = sign_users(
+                self.version_users, self._sign_keys, self._users,
+                self._sync_config_enc, self._kpriv_admin_sign)
 
-        storage.save_file({
-            "version":     new_version,
-            "version_users": new_users_version,
-            "version_entries": new_entries_version,
-            "sign_keys":   self._sign_keys,
-            "users":       self._users,
-            "sync_config": self._sync_config_enc,
-            "entries":     self._entries_enc,
-            "sig_users":   sig_users,
-            "sig_entries": sig_entries,
-        })
+        storage.save_file(self._raw_state())
         self._reload()
 
-        config = self.sync_config
-        if config is not None:
-            def _run():
+    # ── Change + sync ─────────────────────────────────────────────────────────
+
+    def _commit(self, op, on_sync_done=None) -> None:
+        """Apply op locally, save, and upload without overwriting others' changes.
+
+        op mutates the in-memory state and returns the changed section
+        ("entries", "users" or "both"), or None if there is nothing to do.
+        It must be safe to run again on a newer state: if someone else uploaded
+        in the meantime, their file is loaded and all pending ops are re-applied.
+        """
+        with self._lock:
+            snap = self._snapshot()
+            written = False
+            try:
+                changed = op()
+                if changed is None:
+                    return
+                written = True
+                self._write_local(changed)
+            except Exception:
+                self._restore(snap)
+                if written:
+                    storage.save_file(self._raw_state())
+                    self._reload()
+                raise
+            sync_enabled = self.sync_config is not None
+            if sync_enabled:
+                self._pending.append(op)
+            else:
+                self._base = self._snapshot()
+        if sync_enabled:
+            self._start_push(on_sync_done)
+
+    def _start_push(self, on_sync_done=None) -> None:
+        def _run():
+            with self._sync_lock:
                 try:
-                    from sync import sync_push
-                    ok, msg = sync_push(config)
+                    msg, is_error = self._push_pending()
                 except Exception as exc:
-                    ok, msg = False, i18n._("sync_err_exception").format(exc=exc)
-                if on_sync_done:
-                    on_sync_done(msg, not ok)
-            threading.Thread(target=_run, daemon=True).start()
+                    msg, is_error = i18n._("sync_err_exception").format(exc=exc), True
+            if on_sync_done:
+                on_sync_done(msg, is_error)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _push_pending(self) -> tuple[str, bool]:
+        """Upload pending local changes. The caller must hold _sync_lock.
+
+        The remote file is downloaded first. If someone else changed it since
+        our last sync, their version is loaded and the pending changes are
+        re-applied on top. The upload only succeeds if the remote file still
+        has the ETag we just read, so a change that lands in between is
+        detected and handled the same way.
+        """
+        import sync as _sync
+
+        merged = False
+        dropped = 0
+        conflicts = 0
+        while True:
+            with self._lock:
+                if not self._pending:
+                    return self._push_summary(i18n._("sync_pull_ok"), merged, dropped)
+                config = self.sync_config
+            if config is None:
+                with self._lock:
+                    self._pending.clear()
+                    self._base = self._snapshot()
+                return i18n._("sync_not_configured"), False
+
+            remote = _sync.fetch(config)
+            if remote.status == "error":
+                return remote.msg, True
+
+            with self._lock:
+                if remote.status == "ok" and not self._matches_base(remote.data):
+                    error, n_dropped = self._rebase_onto(remote.data)
+                    if error:
+                        return error, True
+                    merged = True
+                    dropped += n_dropped
+                    if not self._pending:
+                        return self._push_summary(i18n._("sync_pull_ok"), merged, dropped)
+                body = json.dumps(self._raw_state(), indent=2).encode("utf-8")
+                pushed = self._snapshot()
+                n_pushed = len(self._pending)
+
+            result = _sync.push(
+                config, body,
+                if_match=remote.etag if remote.status == "ok" else None,
+                create_only=remote.status == "missing",
+            )
+            if result.status == "conflict":
+                conflicts += 1
+                if conflicts >= self._MAX_SYNC_CONFLICTS:
+                    return i18n._("sync_err_conflict_unresolved"), True
+                continue
+            if result.status != "ok":
+                return result.msg, True
+
+            with self._lock:
+                del self._pending[:n_pushed]
+                self._base = pushed
+                if not self._pending:
+                    return self._push_summary(result.msg, merged, dropped)
+
+    @staticmethod
+    def _push_summary(msg: str, merged: bool, dropped: int) -> tuple[str, bool]:
+        if merged:
+            msg = i18n._("sync_merged")
+        if dropped:
+            return i18n._("sync_ops_dropped").format(msg=msg, count=dropped), True
+        return msg, False
+
+    def _matches_base(self, data: dict) -> bool:
+        """True if data is the remote state our pending changes build on."""
+        base = self._base
+        return (data.get("version_users") == base["version_users"]
+                and data.get("version_entries") == base["version_entries"]
+                and data.get("sig_users") == base["sig_users"]
+                and data.get("sig_entries") == base["sig_entries"])
+
+    @staticmethod
+    def _verify_remote(data: dict) -> str | None:
+        """Verify both signatures of a downloaded file against its own keys.
+        Returns an error message, or None if the file is consistently signed."""
+        sign_keys = data.get("sign_keys") or {}
+        sig_users = data.get("sig_users")
+        sig_entries = data.get("sig_entries")
+        if not sig_users or not sig_entries or not sign_keys:
+            return i18n._("sync_err_missing_signatures")
+        try:
+            kpub_admin_sign = pem_to_public_key(sign_keys["admin"])
+            kpub_edit_sign = pem_to_public_key(sign_keys["edit"])
+        except Exception:
+            return i18n._("sync_err_users_sig_invalid")
+        if not verify_users(data.get("version_users"), sign_keys, data.get("users", {}),
+                            data.get("sync_config"), sig_users, kpub_admin_sign):
+            return i18n._("sync_err_users_sig_invalid")
+        if not verify_entries(data.get("version_entries"), data.get("entries", []),
+                              sig_entries, kpub_edit_sign):
+            return i18n._("sync_err_entries_sig_invalid")
+        return None
+
+    def _rebase_onto(self, data: dict) -> tuple[str | None, int]:
+        """Load a newer remote file and re-apply pending ops on top of it.
+
+        The caller must hold _lock. Returns (error, dropped). On error the
+        local state is left unchanged. dropped counts pending ops that no
+        longer apply to the remote state.
+        """
+        error = self._verify_remote(data)
+        if error:
+            return error, 0
+        # Only build on files signed with the keys we already trust. A key
+        # change needs the trust prompt of a manual sync.
+        if data.get("sign_keys") != self._base["sign_keys"]:
+            return i18n._("sync_err_rebase_keys_changed"), 0
+
+        local = self._snapshot()
+        self._restore(self._base)
+        try:
+            storage.save_file(data)
+            self._reload()
+        except Exception:
+            self._restore(local)
+            storage.save_file(self._raw_state())
+            self._reload()
+            return i18n._("sync_err_rebase_failed"), 0
+        self._base = self._snapshot()
+        return None, self._reapply_pending()
+
+    def _reapply_pending(self) -> int:
+        changed = set()
+        kept = []
+        dropped = 0
+        for op in self._pending:
+            snap = self._snapshot()
+            try:
+                result = op()
+            except Exception:
+                self._restore(snap)
+                dropped += 1
+                continue
+            if result is not None:
+                changed.add(result)
+                kept.append(op)
+        self._pending[:] = kept
+        if changed:
+            self._write_local(
+                "both" if "both" in changed or len(changed) > 1 else changed.pop())
+        return dropped
 
     # ── Entry queries ─────────────────────────────────────────────────────────
 
@@ -490,31 +706,33 @@ class CalendarApp:
         if recurrence:
             entry["recurrence"] = recurrence
 
-        encrypted = encrypt_entry(entry, self._sym_key_cal)
+        def op():
+            encrypted = encrypt_entry(entry, self._sym_key_cal)
+            pos = 0
+            for i, e in enumerate(self.buffer):
+                if timestamp < e["timestamp"]:
+                    pos = i
+                    break
+                pos = i + 1
+            self._entries_enc.insert(pos, encrypted)
+            return "entries"
 
-        pos = 0
-        for i, e in enumerate(self.buffer):
-            if timestamp < e["timestamp"]:
-                pos = i
-                break
-            pos = i + 1
-
-        self._entries_enc.insert(pos, encrypted)
-        self._save_and_sync(changed="entries", on_sync_done=on_sync_done)
+        self._commit(op, on_sync_done)
 
     def update_entry(self, entry_id: str, title: str, date_str: str,
                      time_str: str, comments: list[str],
                      color: str | None = None, recurrence: dict | None = None,
                      on_sync_done=None):
         existing = next((e["data"] for e in self.buffer if e["id"] == entry_id), None)
-        if existing is not None:
-            if (existing.get("title") == title
-                    and existing.get("date") == date_str
-                    and existing.get("time") == time_str
-                    and existing.get("comments", []) == comments
-                    and existing.get("color") == color
-                    and existing.get("recurrence") == recurrence):
-                return  # nothing changed — skip save and sync
+        if existing is None:
+            return
+        if (existing.get("title") == title
+                and existing.get("date") == date_str
+                and existing.get("time") == time_str
+                and existing.get("comments", []) == comments
+                and existing.get("color") == color
+                and existing.get("recurrence") == recurrence):
+            return  # nothing changed — skip save and sync
 
         date_dt = datetime.strptime(date_str, "%d.%m.%Y")
         if time_str not in ("all-day", "unknown"):
@@ -535,19 +753,29 @@ class CalendarApp:
         if recurrence:
             entry["recurrence"] = recurrence
 
-        encrypted = encrypt_entry(entry, self._sym_key_cal)
-        self._entries_enc = [
-            encrypted if e["id"] == entry_id else e
-            for e in self._entries_enc
-        ]
-        self._save_and_sync(changed="entries", on_sync_done=on_sync_done)
+        def op():
+            if not any(e["id"] == entry_id for e in self._entries_enc):
+                # Deleted by someone else in the meantime.
+                raise RuntimeError(i18n._("app_err_entry_not_found"))
+            encrypted = encrypt_entry(entry, self._sym_key_cal)
+            self._entries_enc = [
+                encrypted if e["id"] == entry_id else e
+                for e in self._entries_enc
+            ]
+            return "entries"
+
+        self._commit(op, on_sync_done)
 
     def delete_entries(self, ids: list[str], on_sync_done=None) -> bool:
-        original_len = len(self._entries_enc)
-        self._entries_enc = [e for e in self._entries_enc if e["id"] not in ids]
-        if len(self._entries_enc) == original_len:
+        if not any(e["id"] in ids for e in self._entries_enc):
             return False
-        self._save_and_sync(changed="entries", on_sync_done=on_sync_done)
+
+        def op():
+            before = len(self._entries_enc)
+            self._entries_enc = [e for e in self._entries_enc if e["id"] not in ids]
+            return "entries" if len(self._entries_enc) != before else None
+
+        self._commit(op, on_sync_done)
         return True
 
     # ── Sync config (admin only) ──────────────────────────────────────────────
@@ -555,12 +783,16 @@ class CalendarApp:
     def update_sync_config(self, sync_data: dict | None, on_sync_done=None):
         if not self._is_admin:
             raise RuntimeError(i18n._("app_err_only_admin_sync_config"))
-        if sync_data is None:
-            self._sync_config_enc = None
-        else:
-            self._sync_config_enc = sym_encrypt(
-                self._sym_key_cal, json.dumps(sync_data).encode())
-        self._save_and_sync(changed="users", on_sync_done=on_sync_done)
+
+        def op():
+            if sync_data is None:
+                self._sync_config_enc = None
+            else:
+                self._sync_config_enc = sym_encrypt(
+                    self._sym_key_cal, json.dumps(sync_data).encode())
+            return "users"
+
+        self._commit(op, on_sync_done)
 
     # ── User management (admin only) ──────────────────────────────────────────
 
@@ -584,86 +816,101 @@ class CalendarApp:
     # ── Sync pull (all users) ─────────────────────────────────────────────────
 
     def sync_pull(self, on_done=None, request_trust=None) -> None:
-        """Download a newer calendar.json from Nextcloud in the background."""
+        """Download a newer calendar.json in the background.
+
+        Local changes that are not uploaded yet are kept: they are re-applied
+        on top of the downloaded state and uploaded.
+        """
         config = self.sync_config
         if config is None:
             if on_done:
                 on_done(i18n._("sync_not_configured"), False)
             return
 
-        local_sign_keys = self._sign_keys
-
         def _run():
-            from sync import sync_pull as _pull
-            data, msg = _pull(config)
-            if data is None:
-                if on_done:
-                    on_done(msg, True)
-                return
-
-            remote_sign_keys = data.get("sign_keys", {})
-            sig_users = data.get("sig_users")
-            sig_entries = data.get("sig_entries")
-            remote_users_version = data["version_users"]
-            remote_entries_version = data["version_entries"]
-
-            if not sig_users or not sig_entries or not remote_sign_keys:
-                if on_done:
-                    on_done(i18n._("sync_err_missing_signatures"), True)
-                return
-
-            kpub_admin_sign = pem_to_public_key(remote_sign_keys["admin"])
-            kpub_edit_sign = pem_to_public_key(remote_sign_keys["edit"])
-
-            if not verify_users(remote_users_version, remote_sign_keys, data.get("users", {}),
-                                data.get("sync_config"), sig_users, kpub_admin_sign):
-                if on_done:
-                    on_done(i18n._("sync_err_users_sig_invalid"), True)
-                return
-
-            if not verify_entries(remote_entries_version, data.get("entries", []),
-                                  sig_entries, kpub_edit_sign):
-                if on_done:
-                    on_done(i18n._("sync_err_entries_sig_invalid"), True)
-                return
-
-            sign_keys_changed = remote_sign_keys != local_sign_keys
-            if sign_keys_changed:
-                if request_trust is None:
-                    if on_done:
-                        on_done(i18n._("sync_err_sign_keys_mismatch"), True)
-                    return
-
-                remote_fingerprint = sign_keys_fingerprint(remote_sign_keys)
-                expected = request_trust(remote_fingerprint)
-                if expected is None:
-                    if on_done:
-                        on_done(i18n._("sync_err_sign_keys_not_confirmed"), True)
-                    return
-                if normalize_fingerprint(expected) != remote_fingerprint:
-                    if on_done:
-                        on_done(
-                            i18n._("sync_err_fingerprint_mismatch").format(
-                                fingerprint=format_fingerprint(remote_fingerprint)),
-                            True,
-                        )
-                    return
-
-            if (remote_users_version <= self.version_users
-                    and remote_entries_version <= self.version_entries):
-                if on_done:
-                    on_done(i18n._("sync_up_to_date"), False)
-                return
-
-            storage.save_file(data)
-            self._reload()
+            with self._sync_lock:
+                try:
+                    msg, is_error = self._pull(config, request_trust)
+                except Exception as exc:
+                    msg, is_error = i18n._("sync_err_exception").format(exc=exc), True
             if on_done:
-                if sign_keys_changed:
-                    on_done(i18n._("sync_sign_keys_accepted").format(msg=msg), False)
-                else:
-                    on_done(msg, False)
+                on_done(msg, is_error)
 
         threading.Thread(target=_run, daemon=True).start()
+
+    def _pull(self, config, request_trust) -> tuple[str, bool]:
+        """Download and apply the remote file. The caller must hold _sync_lock."""
+        import sync as _sync
+
+        with self._lock:
+            has_pending = bool(self._pending)
+        if has_pending:
+            msg, is_error = self._push_pending()
+            if msg != i18n._("sync_err_rebase_keys_changed"):
+                return msg, is_error
+            # The signing keys changed: fall through to the trust prompt. The
+            # pending changes were signed with keys that are no longer valid.
+
+        remote = _sync.fetch(config)
+        if remote.status != "ok":
+            return remote.msg, True
+        data = remote.data
+
+        error = self._verify_remote(data)
+        if error:
+            return error, True
+
+        remote_sign_keys = data["sign_keys"]
+        with self._lock:
+            trusted_sign_keys = copy.deepcopy(self._base["sign_keys"])
+        sign_keys_changed = remote_sign_keys != trusted_sign_keys
+        if sign_keys_changed:
+            if request_trust is None:
+                return i18n._("sync_err_sign_keys_mismatch"), True
+            remote_fingerprint = sign_keys_fingerprint(remote_sign_keys)
+            expected = request_trust(remote_fingerprint)
+            if expected is None:
+                return i18n._("sync_err_sign_keys_not_confirmed"), True
+            if normalize_fingerprint(expected) != remote_fingerprint:
+                return i18n._("sync_err_fingerprint_mismatch").format(
+                    fingerprint=format_fingerprint(remote_fingerprint)), True
+
+        with self._lock:
+            if self._pending and not sign_keys_changed:
+                # Changes made while this download was running.
+                if self._matches_base(data):
+                    return remote.msg, False
+                error, dropped = self._rebase_onto(data)
+                if error:
+                    return error, True
+                return self._push_summary(remote.msg, False, dropped)
+
+            dropped_pending = bool(self._pending)
+            if (not dropped_pending
+                    and data["version_users"] <= self.version_users
+                    and data["version_entries"] <= self.version_entries):
+                return i18n._("sync_up_to_date"), False
+
+            local = self._snapshot()
+            if dropped_pending:
+                self._pending.clear()
+                self._restore(self._base)
+            try:
+                storage.save_file(data)
+                self._reload()
+            except Exception:
+                self._restore(local)
+                storage.save_file(self._raw_state())
+                self._reload()
+                return i18n._("sync_err_load_failed"), True
+            self._base = self._snapshot()
+
+        msg = remote.msg
+        if sign_keys_changed:
+            msg = i18n._("sync_sign_keys_accepted").format(msg=msg)
+        if dropped_pending:
+            return i18n._("sync_pending_dropped").format(msg=msg), True
+        return msg, False
 
     def add_user(self, identifier: str, kpub_user=None,
                  password: bytes | None = None,
@@ -697,16 +944,22 @@ class CalendarApp:
             serialization.Encoding.X962,
             serialization.PublicFormat.UncompressedPoint,
         )
-        user_entry = {
-            "kpub_enc": b64(kpub_bytes),
-            "sym_key_cal_enc": ecies_encrypt(kpub_user, self._sym_key_cal),
-            "identifier_enc": sym_encrypt(self._sym_key_cal, identifier.encode()),
-            "role": role,
-        }
-        self._apply_signing_keys_for_role(user_entry)
 
-        self._users[h] = user_entry
-        self._save_and_sync(changed="users")
+        def op():
+            if h in self._users:
+                raise RuntimeError(
+                    i18n._("app_err_user_exists").format(identifier=identifier))
+            user_entry = {
+                "kpub_enc": b64(kpub_bytes),
+                "sym_key_cal_enc": ecies_encrypt(kpub_user, self._sym_key_cal),
+                "identifier_enc": sym_encrypt(self._sym_key_cal, identifier.encode()),
+                "role": role,
+            }
+            self._apply_signing_keys_for_role(user_entry)
+            self._users[h] = user_entry
+            return "users"
+
+        self._commit(op)
         return kpriv_bytes
 
     def change_user_role(self, user_hash: str, new_role: str) -> None:
@@ -718,24 +971,27 @@ class CalendarApp:
         if user_hash not in self._users:
             raise RuntimeError(i18n._("app_err_user_not_found"))
 
-        user_entry = self._users[user_hash]
-        old_role = user_entry.get("role", "viewer")
-        if old_role == new_role:
-            return
+        def op():
+            user_entry = self._users.get(user_hash)
+            if user_entry is None:
+                raise RuntimeError(i18n._("app_err_user_not_found"))
+            old_role = user_entry.get("role", "viewer")
+            if old_role == new_role:
+                return None
 
-        user_entry["role"] = new_role
+            user_entry["role"] = new_role
 
-        rotate_admin = old_role == "admin" and new_role != "admin"
-        rotate_edit = old_role in ("admin", "editor") and new_role not in ("admin", "editor")
+            rotate_admin = old_role == "admin" and new_role != "admin"
+            rotate_edit = (old_role in ("admin", "editor")
+                           and new_role not in ("admin", "editor"))
 
-        if rotate_admin or rotate_edit:
-            self._rotate_signing_keys(rotate_admin=rotate_admin, rotate_edit=rotate_edit)
-            changed = "both" if rotate_edit else "users"
-        else:
+            if rotate_admin or rotate_edit:
+                self._rotate_signing_keys(rotate_admin=rotate_admin, rotate_edit=rotate_edit)
+                return "both" if rotate_edit else "users"
             self._apply_signing_keys_for_role(user_entry)
-            changed = "users"
+            return "users"
 
-        self._save_and_sync(changed=changed)
+        self._commit(op)
 
     def remove_user(self, user_hash_str: str) -> None:
         """Remove a user, rotate sym_key_cal, and revoke any distributed sign keys."""
@@ -746,44 +1002,49 @@ class CalendarApp:
         if user_hash_str not in self._users:
             raise RuntimeError(i18n._("app_err_user_not_found"))
 
-        removed_role = self._users[user_hash_str].get("role", "viewer")
-        del self._users[user_hash_str]
+        def op():
+            if user_hash_str not in self._users:
+                raise RuntimeError(i18n._("app_err_user_not_found"))
+            removed_role = self._users[user_hash_str].get("role", "viewer")
+            del self._users[user_hash_str]
 
-        new_key = os.urandom(32)
-        new_entries = []
-        for enc in self._entries_enc:
-            try:
-                data = decrypt_entry(enc, self._sym_key_cal)
-                new_entries.append(encrypt_entry(data, new_key))
-            except Exception as exc:
-                raise RuntimeError(
-                    i18n._("app_err_rotation_entry").format(
-                        id=enc.get("id", "<unknown>"))
-                ) from exc
+            new_key = os.urandom(32)
+            new_entries = []
+            for enc in self._entries_enc:
+                try:
+                    data = decrypt_entry(enc, self._sym_key_cal)
+                    new_entries.append(encrypt_entry(data, new_key))
+                except Exception as exc:
+                    raise RuntimeError(
+                        i18n._("app_err_rotation_entry").format(
+                            id=enc.get("id", "<unknown>"))
+                    ) from exc
 
-        for h, user_entry in self._users.items():
-            kpub = self._user_public_key(user_entry)
-            user_entry["sym_key_cal_enc"] = ecies_encrypt(kpub, new_key)
-            try:
-                identifier_plain = sym_decrypt(
-                    self._sym_key_cal, _get_identifier_enc(user_entry))
-                user_entry["identifier_enc"] = sym_encrypt(new_key, identifier_plain)
-            except Exception as exc:
-                raise RuntimeError(
-                    i18n._("app_err_rotation_identifier").format(user=h)) from exc
+            for h, user_entry in self._users.items():
+                kpub = self._user_public_key(user_entry)
+                user_entry["sym_key_cal_enc"] = ecies_encrypt(kpub, new_key)
+                try:
+                    identifier_plain = sym_decrypt(
+                        self._sym_key_cal, _get_identifier_enc(user_entry))
+                    user_entry["identifier_enc"] = sym_encrypt(new_key, identifier_plain)
+                except Exception as exc:
+                    raise RuntimeError(
+                        i18n._("app_err_rotation_identifier").format(user=h)) from exc
 
-        if self._sync_config_enc:
-            try:
-                sc_plain = sym_decrypt(self._sym_key_cal, self._sync_config_enc)
-                self._sync_config_enc = sym_encrypt(new_key, sc_plain)
-            except Exception as exc:
-                raise RuntimeError(
-                    i18n._("app_err_rotation_sync_config")) from exc
+            if self._sync_config_enc:
+                try:
+                    sc_plain = sym_decrypt(self._sym_key_cal, self._sync_config_enc)
+                    self._sync_config_enc = sym_encrypt(new_key, sc_plain)
+                except Exception as exc:
+                    raise RuntimeError(
+                        i18n._("app_err_rotation_sync_config")) from exc
 
-        self._sym_key_cal = new_key
-        self._entries_enc = new_entries
-        self._rotate_signing_keys(
-            rotate_admin=(removed_role == "admin"),
-            rotate_edit=(removed_role in ("admin", "editor")),
-        )
-        self._save_and_sync(changed="both")
+            self._sym_key_cal = new_key
+            self._entries_enc = new_entries
+            self._rotate_signing_keys(
+                rotate_admin=(removed_role == "admin"),
+                rotate_edit=(removed_role in ("admin", "editor")),
+            )
+            return "both"
+
+        self._commit(op)
